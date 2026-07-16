@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#102C45" flood-opacity=".16"/></filter></defs>
+  <rect x="20" y="20" width="1160" height="760" rx="52" fill="#F7F2E9"/>
+  <path d="M120 660H1080" stroke="#CDD2D2" stroke-width="18" stroke-linecap="round"/>
+  <g filter="url(#shadow)">
+    <path d="M210 650H990M280 650V170H930V650" fill="none" stroke="#102C45" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="300" y="210" width="125" height="355" rx="28" fill="#E1E5E3" stroke="#102C45" stroke-width="18"/>
+    <path d="M337 270H388M337 340H388M337 410H388M337 480H388" stroke="#8FA995" stroke-width="24" stroke-linecap="round"/>
+    <rect x="500" y="285" width="175" height="285" rx="42" fill="#8FA995" stroke="#102C45" stroke-width="18"/>
+    <rect x="470" y="530" width="300" height="100" rx="38" fill="#8FA995" stroke="#102C45" stroke-width="18"/>
+    <path d="M760 570L895 570V420" fill="none" stroke="#102C45" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="760" cy="570" r="36" fill="#C97845" stroke="#102C45" stroke-width="14"/>
+    <path d="M760 570L850 495L900 555" fill="none" stroke="#C97845" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="845" y="535" width="120" height="58" rx="29" fill="#8FA995" stroke="#102C45" stroke-width="14"/>
+    <rect x="665" y="465" width="145" height="56" rx="28" fill="#8FA995" stroke="#102C45" stroke-width="14"/>
+  </g>
+</svg>

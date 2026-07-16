@@ -1,5 +1,19 @@
 # Projet Renaissance
 
+## Illustrations originales des équipements
+
+- 12 SVG originaux dans `assets/machines/`, sans logo ni modèle constructeur ;
+- 12 PNG Android 1200 × 800 dans `app/src/main/res/drawable-nodpi/` ;
+- affichage dans la bibliothèque, l’aperçu de séance, la fiche mouvement et la
+  vue machine plein écran ;
+- l’illustration reste le repli hors connexion ;
+- une future photo personnelle peut prendre la priorité via `userPhotoUri` sans
+  supprimer l’asset original ;
+- direction artistique : `MACHINE_ART_DIRECTION.md` ;
+- index complet : `MACHINE_ASSET_INDEX.md`.
+
+Rapport réel Pixel 8 : `MACHINE_ASSET_DEVICE_TEST_REPORT.md`.
+
 ## Nouveau lot ciblé
 
 - Les 12 fiches disposent de positions départ/intermédiaire/finale, trajectoire,

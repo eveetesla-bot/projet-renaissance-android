@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#102C45" flood-opacity=".16"/></filter>
+    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="36" markerHeight="28" refX="32" refY="14" orient="auto" viewBox="0 0 36 28"><path d="M0 0L36 14L0 28Z" fill="#C97845"/></marker>
+  </defs>
+  <rect x="20" y="20" width="1160" height="760" rx="52" fill="#F7F2E9"/>
+  <g filter="url(#shadow)">
+    <rect x="160" y="160" width="880" height="500" rx="58" fill="#8FA995" opacity=".34" stroke="#8FA995" stroke-width="20"/>
+    <circle cx="380" cy="415" r="62" fill="#D9A27E" stroke="#102C45" stroke-width="16"/>
+    <path d="M445 415L650 415" stroke="#102C45" stroke-width="82" stroke-linecap="round"/>
+    <path d="M500 390L670 235M500 440L690 585" stroke="#D9A27E" stroke-width="42" stroke-linecap="round"/>
+    <path d="M635 390L760 290L850 330M635 440L755 520L895 520" fill="none" stroke="#466277" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="650" cy="415" r="38" fill="#C97845"/>
+    <path d="M680 245L825 170M700 590L870 650" stroke="#C97845" stroke-width="18" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <path d="M250 650H950" stroke="#CDD2D2" stroke-width="16" stroke-linecap="round"/>
+  </g>
+</svg>

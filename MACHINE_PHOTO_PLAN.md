@@ -2,6 +2,12 @@
 
 Date d’inventaire : 16 juillet 2026.
 
+Depuis le lot d’illustrations machines, chaque exercice possède une vue
+vectorielle originale utilisée par défaut. La colonne « Photo » ci-dessous
+concerne uniquement une éventuelle photographie personnelle future. Une photo
+validée pourra remplacer l’illustration à l’écran ; le SVG original restera
+conservé dans `assets/machines/`.
+
 Règle éditoriale : une photo n’est affichée comme photo de machine que si elle
 provient d’une ressource locale identifiée, d’une photo prise dans la salle ou
 d’une source autorisée et documentée. Le livre Word contient des illustrations,

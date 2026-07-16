@@ -1,5 +1,9 @@
 package fr.projetrenaissance.presentation
 
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,16 +36,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import fr.projetrenaissance.R
 import fr.projetrenaissance.data.ExerciseEntity
 import fr.projetrenaissance.domain.ExerciseMediaCatalog
-import fr.projetrenaissance.domain.MediaVerificationStatus
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
@@ -60,11 +68,74 @@ fun ExerciseMediaThumbnail(exerciseId: String, onOpen: () -> Unit) {
     }
 }
 
+@DrawableRes
+fun machineDrawableFor(exerciseId: String): Int = when (exerciseId) {
+    "bike" -> R.drawable.machine_bike
+    "leg_press" -> R.drawable.machine_leg_press
+    "chest_press" -> R.drawable.machine_chest_press
+    "seated_row" -> R.drawable.machine_seated_row
+    "leg_curl" -> R.drawable.machine_leg_curl
+    "lateral_raise" -> R.drawable.machine_lateral_raise
+    "calf_press" -> R.drawable.machine_calf_press
+    "hip_thrust" -> R.drawable.machine_hip_thrust
+    "leg_extension" -> R.drawable.machine_leg_extension
+    "abductors" -> R.drawable.machine_abductors
+    "dead_bug" -> R.drawable.machine_dead_bug
+    "reverse_crunch" -> R.drawable.machine_reverse_crunch
+    else -> R.drawable.machine_bike
+}
+
+@Composable
+fun MachineAssetImage(
+    exerciseId: String,
+    modifier: Modifier = Modifier,
+    userPhotoUri: String? = ExerciseMediaCatalog.forExercise(exerciseId)?.machine?.userPhotoUri,
+) {
+    val media = ExerciseMediaCatalog.forExercise(exerciseId)
+    val context = LocalContext.current
+    val userPhoto = remember(userPhotoUri) {
+        userPhotoUri?.let { value ->
+            runCatching {
+                context.contentResolver.openInputStream(Uri.parse(value))?.use(BitmapFactory::decodeStream)?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    if (userPhoto != null) {
+        Image(
+            bitmap = userPhoto,
+            contentDescription = media?.let { "Photo personnelle de ${it.machine.genericName}" },
+            modifier = modifier,
+            contentScale = ContentScale.Fit,
+        )
+    } else {
+        Image(
+            painter = painterResource(machineDrawableFor(exerciseId)),
+            contentDescription = media?.let { "Illustration originale de ${it.machine.genericName}" },
+            modifier = modifier,
+            contentScale = ContentScale.Fit,
+        )
+    }
+}
+
+@Composable
+fun MachineAssetThumbnail(exerciseId: String, onOpen: () -> Unit) {
+    val media = ExerciseMediaCatalog.forExercise(exerciseId) ?: return
+    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Column(Modifier.padding(10.dp)) {
+            MachineAssetImage(exerciseId, Modifier.fillMaxWidth().height(128.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(media.machine.genericName, style = MaterialTheme.typography.bodySmall, color = SoftGray)
+                Text("VOIR LA MACHINE", color = Copper, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 enum class ExerciseMediaView { MOVEMENT, MACHINE, BOOK }
 
 @Composable
 fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -> Unit) {
-    val media = ExerciseMediaCatalog.forExercise(exercise.id) ?: return
+    if (ExerciseMediaCatalog.forExercise(exercise.id) == null) return
     Card(
         onClick = onOpen,
         modifier = Modifier.fillMaxWidth(),
@@ -73,7 +144,7 @@ fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -
         elevation = CardDefaults.cardElevation(2.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ExerciseMovementCanvas(exercise.id, 1, Modifier.fillMaxWidth().height(170.dp), media.accessibilityDescription)
+            MachineAssetImage(exercise.id, Modifier.fillMaxWidth().height(170.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(exercise.name, style = MaterialTheme.typography.titleLarge, color = DeepNavy)
@@ -85,7 +156,7 @@ fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -
                 AssistChip(onClick = {}, label = { Text("ÉPAULE · PRUDENCE") })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("3 positions · hors connexion", style = MaterialTheme.typography.bodySmall, color = SoftGray)
+                Text("Illustration machine originale · hors connexion", style = MaterialTheme.typography.bodySmall, color = SoftGray)
                 Text("VOIR LA FICHE  →", style = MaterialTheme.typography.labelLarge, color = Copper)
             }
         }
@@ -135,16 +206,14 @@ fun ExerciseMediaScreen(
             item {
                 Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Paper)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MachineReferenceCanvas(exercise.id, Modifier.fillMaxWidth().height(300.dp))
+                        MachineAssetImage(exercise.id, Modifier.fillMaxWidth().height(300.dp))
                         Text(media.machine.genericName, style = MaterialTheme.typography.headlineLarge, color = DeepNavy)
                         Text(media.machine.expectedType, style = MaterialTheme.typography.titleMedium, color = Sage)
-                        if (media.machine.localResource == null) {
-                            AssistChip(onClick = {}, label = { Text("PHOTO MACHINE À VALIDER") })
-                            Text(
-                                "Aucune photo réelle et vérifiée n’est encore intégrée. Ce repère dessiné ne remplace pas la photo de la machine présente dans votre salle.",
-                                color = SoftGray,
-                            )
-                        }
+                        AssistChip(onClick = {}, label = { Text("ILLUSTRATION ORIGINALE") })
+                        Text(
+                            "Vue générique non liée à une marque. Une future photo personnelle validée pourra remplacer cet affichage sans supprimer l’illustration.",
+                            color = SoftGray,
+                        )
                         ExerciseSection("Repères de réglage", media.machine.adjustmentLandmarks, Sage)
                         ExerciseSection("Variantes possibles", media.machine.possibleVariants, Copper)
                         ExerciseSection(
@@ -194,6 +263,14 @@ fun ExerciseMediaScreen(
             TextButton(onClick = { repeat = !repeat }) { Text(if (repeat) "Répétition activée" else "Répétition désactivée") }
         }
         item {
+            PremiumSurfaceCard(tone = PremiumTone.SAGE) {
+                Text("ÉQUIPEMENT", style = MaterialTheme.typography.labelLarge, color = Sage)
+                MachineAssetImage(exercise.id, Modifier.fillMaxWidth().height(170.dp))
+                Text(media.machine.genericName, style = MaterialTheme.typography.titleMedium, color = DeepNavy)
+                Text("Illustration originale générique · hors connexion", style = MaterialTheme.typography.bodySmall, color = SoftGray)
+            }
+        }
+        item {
             PremiumSurfaceCard {
                 ExerciseSection("Position", listOf(media.guidedIllustration.startPosition, media.guidedIllustration.middlePosition, media.guidedIllustration.endPosition)[frame], Copper)
                 ExerciseSection("Trajectoire", media.guidedIllustration.trajectory, Navy)
@@ -212,34 +289,6 @@ fun ExerciseMediaScreen(
         item { CoachTipCard("Garde une amplitude confortable et une trajectoire reproductible. La qualité du geste passe avant la charge.", "Conseil Renaissance") }
         item { RenaissanceInsightCard("Lien avec la séance", "Retrouve ce mouvement dans ta séance avec les séries, répétitions, tempo et repos adaptés à ton profil.") }
         item { Text("Illustration originale hors ligne · ${media.verificationDate}. Schéma indicatif, sans valeur d’avis médical.", style = MaterialTheme.typography.bodySmall) }
-    }
-}
-
-@Composable
-private fun MachineReferenceCanvas(exerciseId: String, modifier: Modifier) {
-    Canvas(modifier.semantics { contentDescription = "Repère dessiné de la machine, photo réelle à valider" }) {
-        drawRoundRect(Color(0xFFF2EEE6), size = size, cornerRadius = androidx.compose.ui.geometry.CornerRadius(28f))
-        val w = size.width
-        val h = size.height
-        drawRoundRect(Sage.copy(alpha = .18f), Offset(w * .12f, h * .12f), Size(w * .76f, h * .72f), androidx.compose.ui.geometry.CornerRadius(30f), style = Stroke(7f))
-        when (exerciseId) {
-            "bike" -> {
-                drawCircle(Sage, w * .18f, Offset(w * .48f, h * .62f), style = Stroke(9f))
-                drawLine(Navy, Offset(w * .48f, h * .62f), Offset(w * .36f, h * .35f), 11f, StrokeCap.Round)
-                drawLine(Navy, Offset(w * .32f, h * .34f), Offset(w * .48f, h * .34f), 13f, StrokeCap.Round)
-                drawLine(Navy, Offset(w * .54f, h * .30f), Offset(w * .72f, h * .43f), 11f, StrokeCap.Round)
-            }
-            "dead_bug", "reverse_crunch" -> {
-                drawRoundRect(Sage, Offset(w * .14f, h * .58f), Size(w * .72f, h * .12f), androidx.compose.ui.geometry.CornerRadius(18f))
-            }
-            else -> {
-                drawRoundRect(Navy.copy(alpha = .80f), Offset(w * .18f, h * .22f), Size(w * .16f, h * .50f), androidx.compose.ui.geometry.CornerRadius(18f))
-                drawRoundRect(Sage, Offset(w * .39f, h * .48f), Size(w * .28f, h * .12f), androidx.compose.ui.geometry.CornerRadius(18f))
-                drawLine(Copper, Offset(w * .32f, h * .30f), Offset(w * .72f, h * .30f), 10f, StrokeCap.Round)
-                drawLine(Copper, Offset(w * .72f, h * .30f), Offset(w * .76f, h * .66f), 10f, StrokeCap.Round)
-            }
-        }
-        drawLine(Color(0xFFD6CFC3), Offset(w * .08f, h * .84f), Offset(w * .92f, h * .84f), 5f)
     }
 }
 

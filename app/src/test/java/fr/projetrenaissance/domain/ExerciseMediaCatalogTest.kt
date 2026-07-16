@@ -10,8 +10,13 @@ class ExerciseMediaCatalogTest {
         val expected = setOf("bike", "leg_press", "chest_press", "seated_row", "leg_curl", "lateral_raise", "calf_press", "hip_thrust", "leg_extension", "abductors", "dead_bug", "reverse_crunch")
         assertEquals(expected, ExerciseMediaCatalog.all.map { it.exerciseId }.toSet())
         assertTrue(ExerciseMediaCatalog.all.all { it.guidedIllustration.startPosition.isNotBlank() })
-        assertTrue(ExerciseMediaCatalog.all.all { it.machine.verificationStatus == MediaVerificationStatus.TO_VALIDATE })
-        assertTrue(ExerciseMediaCatalog.all.all { it.machine.localResource == null && it.verifiedVideoUrl == null })
+        assertTrue(ExerciseMediaCatalog.all.all { it.machine.verificationStatus == MediaVerificationStatus.VERIFIED })
+        assertTrue(ExerciseMediaCatalog.all.all {
+            it.machine.localResource == "machine_${it.exerciseId}" &&
+                it.machine.userPhotoUri == null &&
+                it.machine.source == "Illustration vectorielle originale Projet Renaissance"
+        })
+        assertTrue(ExerciseMediaCatalog.all.all { it.verifiedVideoUrl == null })
         assertTrue(ExerciseMediaCatalog.all.all { it.accessibilityDescription.isNotBlank() })
     }
 

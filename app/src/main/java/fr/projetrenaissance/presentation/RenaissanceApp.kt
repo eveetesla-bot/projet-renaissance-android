@@ -678,6 +678,7 @@ private fun WorkoutScreen(
                 if (demoExpanded) {
                     Text("Illustration locale du mouvement · touchez pour ouvrir la fiche complète", style = MaterialTheme.typography.bodySmall, color = SoftGray)
                     ExerciseMediaThumbnail(current.exercise.id) { onMedia(current.exercise.id, ExerciseMediaView.MOVEMENT) }
+                    MachineAssetThumbnail(current.exercise.id) { onMedia(current.exercise.id, ExerciseMediaView.MACHINE) }
                 }
                 val media = ExerciseMediaCatalog.forExercise(current.exercise.id)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
