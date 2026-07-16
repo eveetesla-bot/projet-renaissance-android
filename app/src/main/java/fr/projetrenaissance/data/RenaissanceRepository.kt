@@ -1,0 +1,413 @@
+package fr.projetrenaissance.data
+
+import androidx.room.withTransaction
+import fr.projetrenaissance.domain.SafetyExercise
+import fr.projetrenaissance.domain.SafetyRules
+import fr.projetrenaissance.domain.SessionLength
+import java.util.UUID
+import java.time.Instant
+import java.time.ZoneId
+import kotlinx.coroutines.flow.Flow
+import org.json.JSONArray
+import org.json.JSONObject
+
+class RenaissanceRepository(private val database: AppDatabase) {
+    private val dao = database.dao()
+
+    suspend fun seedIfNeeded() {
+        database.withTransaction {
+            dao.deleteLegacyDemoMetrics()
+            dao.deleteKnownTimerValidationSet(
+                startMillis = 1_784_132_100_000L,
+                endMillis = 1_784_132_700_000L,
+            )
+            dao.deleteMarkedTestSets()
+            if (dao.profileCount() == 0) {
+                dao.insertProfiles(DemoData.profiles)
+                dao.insertExercises(DemoData.exercises)
+                dao.insertTemplates(DemoData.templates)
+                dao.insertWorkoutExercises(DemoData.workoutExercises)
+            }
+        }
+    }
+
+    fun profile(id: String): Flow<ProfileEntity?> = dao.observeProfile(id)
+    fun templates(profileId: String): Flow<List<WorkoutTemplateEntity>> = dao.observeTemplates(profileId)
+    fun exercises(): Flow<List<ExerciseEntity>> = dao.observeExercises()
+    fun metrics(profileId: String): Flow<List<BodyMetricEntity>> = dao.observeMetrics(profileId)
+    fun latestCheckIn(profileId: String): Flow<DailyCheckInEntity?> = dao.observeLatestCheckIn(profileId)
+    fun checkIns(profileId: String): Flow<List<DailyCheckInEntity>> = dao.observeCheckIns(profileId)
+    fun setLogs(profileId: String): Flow<List<SetLogEntity>> = dao.observeSetLogs(profileId)
+
+    suspend fun plannedExercises(
+        templateId: String,
+        length: SessionLength,
+        isSonia: Boolean,
+        medicalClearance: Boolean,
+    ): List<PlannedExercise> {
+        val rows = dao.workoutRows(templateId)
+        val exercises = dao.exercisesByIds(rows.map { it.exerciseId }).associateBy { it.id }
+        return rows.mapNotNull { row ->
+            val exercise = exercises[row.exerciseId] ?: return@mapNotNull null
+            val allowed = !isSonia || SafetyRules.allowedForSonia(
+                SafetyExercise(exercise.shoulderLoad, exercise.requiresClearance),
+                medicalClearance,
+            )
+            if (!allowed) null else PlannedExercise(
+                position = row.position,
+                sets = (row.sets - length.setReduction).coerceAtLeast(1),
+                reps = row.reps,
+                restSeconds = row.restSeconds,
+                tempo = row.tempo,
+                rpe = row.rpe,
+                exercise = exercise,
+            )
+        }.take(length.maxExercises)
+    }
+
+    suspend fun saveCheckIn(profileId: String, energy: Int, sleep: Int, mood: Int, pain: Int) {
+        dao.insertCheckIn(
+            DailyCheckInEntity(
+                id = UUID.randomUUID().toString(),
+                profileId = profileId,
+                recordedAt = System.currentTimeMillis(),
+                energy = energy,
+                sleep = sleep,
+                mood = mood,
+                pain = pain,
+            ),
+        )
+    }
+
+    suspend fun saveSet(
+        profileId: String,
+        templateId: String,
+        exerciseId: String,
+        setNumber: Int,
+        reps: Int,
+        loadKg: Double,
+        rpe: Int,
+        isTest: Boolean = false,
+        sessionId: String = "",
+    ) {
+        dao.insertSetLog(
+            SetLogEntity(
+                id = if (isTest) "test:${UUID.randomUUID()}" else UUID.randomUUID().toString(),
+                profileId = profileId,
+                templateId = templateId,
+                exerciseId = exerciseId,
+                setNumber = setNumber,
+                reps = reps,
+                loadKg = loadKg,
+                rpe = rpe,
+                completedAt = System.currentTimeMillis(),
+                isTest = isTest,
+                sessionId = sessionId,
+            ),
+        )
+    }
+
+    suspend fun resetProfileData(profileId: String) = database.withTransaction {
+        dao.deleteBodyMetrics(profileId)
+        dao.deleteCheckIns(profileId)
+        dao.deleteSetLogs(profileId)
+        dao.deleteAllHealthRecords(profileId)
+        dao.deleteHealthSyncStates(profileId)
+        dao.deleteWorkoutSessions(profileId)
+    }
+
+    suspend fun resetToday(profileId: String, now: Long = System.currentTimeMillis()) = database.withTransaction {
+        val zone = ZoneId.systemDefault()
+        val day = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        dao.deleteSetLogsInWindow(profileId, start, end)
+        dao.deleteCheckInsInWindow(profileId, start, end)
+        dao.deleteBodyMetricsInWindow(profileId, start, end)
+        dao.deleteWorkoutSessionsInWindow(profileId, start, end)
+    }
+
+    suspend fun resetAllData() = database.withTransaction {
+        dao.deleteEveryWorkoutSession()
+        dao.deleteEverySetLog()
+        dao.deleteEveryCheckIn()
+        dao.deleteEveryBodyMetric()
+        dao.deleteEveryHealthRecord()
+        dao.deleteEveryHealthSyncState()
+        dao.deleteEveryWorkoutExercise()
+        dao.deleteEveryWorkoutTemplate()
+        dao.deleteEveryExercise()
+        dao.deleteEveryProfile()
+    }
+
+    suspend fun openOrResumeWorkout(
+        profileId: String,
+        templateId: String,
+        length: SessionLength,
+    ): WorkoutSessionSnapshot = database.withTransaction {
+        val existing = dao.activeWorkoutSession(profileId, templateId)
+        val session = if (existing != null && existing.length == length.name) {
+            existing
+        } else {
+            if (existing != null) dao.upsertWorkoutSession(existing.copy(status = "ABANDONED"))
+            val created = WorkoutSessionEntity(
+                id = UUID.randomUUID().toString(),
+                profileId = profileId,
+                templateId = templateId,
+                length = length.name,
+                startedAt = System.currentTimeMillis(),
+                currentExerciseIndex = 0,
+                note = "",
+                painReported = false,
+                timerEndsAt = 0L,
+                status = "ACTIVE",
+            )
+            dao.upsertWorkoutSession(created)
+            created
+        }
+        WorkoutSessionSnapshot(session, dao.setLogsForSession(session.id))
+    }
+
+    suspend fun updateWorkoutSession(session: WorkoutSessionEntity) {
+        dao.upsertWorkoutSession(session)
+    }
+
+    suspend fun restartWorkoutAtomically(session: WorkoutSessionEntity): Int = database.withTransaction {
+        val deleted = dao.deleteWorkoutSetsBySession(session.id)
+        dao.upsertWorkoutSession(
+            session.copy(
+                startedAt = System.currentTimeMillis(),
+                currentExerciseIndex = 0,
+                note = "",
+                painReported = false,
+                timerEndsAt = 0L,
+                status = "ACTIVE",
+            ),
+        )
+        deleted
+    }
+
+    suspend fun deleteWorkoutProgress(
+        profileId: String,
+        templateId: String,
+        startedAt: Long,
+        endedAt: Long,
+    ): Int = dao.deleteWorkoutSetsInWindow(profileId, templateId, startedAt, endedAt)
+
+    suspend fun exportJson(preferences: UserPreferences): String {
+        val root = JSONObject()
+            .put("schemaVersion", 1)
+            .put("exportedAt", System.currentTimeMillis())
+            .put("preferences", JSONObject()
+                .put("activeProfileId", preferences.activeProfileId)
+                .put("defaultRestSeconds", preferences.defaultRestSeconds)
+                .put("soundEnabled", preferences.soundEnabled)
+                .put("vibrationEnabled", preferences.vibrationEnabled)
+                .put("soniaMedicalClearance", preferences.soniaMedicalClearance))
+
+        root.put("bodyMetrics", JSONArray().apply {
+            dao.allBodyMetrics().forEach { item ->
+                put(JSONObject()
+                    .put("id", item.id)
+                    .put("profileId", item.profileId)
+                    .put("recordedAt", item.recordedAt)
+                    .put("weightKg", item.weightKg))
+            }
+        })
+        root.put("dailyCheckIns", JSONArray().apply {
+            dao.allCheckIns().forEach { item ->
+                put(JSONObject()
+                    .put("id", item.id)
+                    .put("profileId", item.profileId)
+                    .put("recordedAt", item.recordedAt)
+                    .put("energy", item.energy)
+                    .put("sleep", item.sleep)
+                    .put("mood", item.mood)
+                    .put("pain", item.pain))
+            }
+        })
+        root.put("setLogs", JSONArray().apply {
+            dao.allSetLogs().forEach { item ->
+                put(JSONObject()
+                    .put("id", item.id)
+                    .put("profileId", item.profileId)
+                    .put("templateId", item.templateId)
+                    .put("exerciseId", item.exerciseId)
+                    .put("setNumber", item.setNumber)
+                    .put("reps", item.reps)
+                    .put("loadKg", item.loadKg)
+                    .put("rpe", item.rpe)
+                    .put("completedAt", item.completedAt)
+                    .put("isTest", item.isTest))
+            }
+        })
+        return root.toString(2)
+    }
+
+    suspend fun importJson(payload: String): ImportSummary {
+        val root = JSONObject(payload)
+        require(root.getInt("schemaVersion") == 1) { "Version JSON non prise en charge" }
+        val validProfiles = setOf("gerard", "sonia")
+
+        fun JSONArray.objects(): List<JSONObject> = (0 until length()).map(::getJSONObject)
+
+        val metrics = root.optJSONArray("bodyMetrics")?.objects().orEmpty().map { item ->
+            val profileId = item.getString("profileId").also { require(it in validProfiles) }
+            BodyMetricEntity(item.getString("id"), profileId, item.getLong("recordedAt"), item.getDouble("weightKg"))
+        }
+        val checkIns = root.optJSONArray("dailyCheckIns")?.objects().orEmpty().map { item ->
+            val profileId = item.getString("profileId").also { require(it in validProfiles) }
+            DailyCheckInEntity(
+                item.getString("id"), profileId, item.getLong("recordedAt"),
+                item.getInt("energy").coerceIn(1, 5), item.getInt("sleep").coerceIn(1, 5),
+                item.getInt("mood").coerceIn(1, 5), item.getInt("pain").coerceIn(0, 10),
+            )
+        }
+        val sets = root.optJSONArray("setLogs")?.objects().orEmpty().map { item ->
+            val profileId = item.getString("profileId").also { require(it in validProfiles) }
+            SetLogEntity(
+                item.getString("id"), profileId, item.getString("templateId"), item.getString("exerciseId"),
+                item.getInt("setNumber").coerceAtLeast(1), item.getInt("reps").coerceAtLeast(0),
+                item.getDouble("loadKg").coerceAtLeast(0.0), item.getInt("rpe").coerceIn(1, 10),
+                item.getLong("completedAt"), item.optBoolean("isTest", false),
+            )
+        }
+
+        database.withTransaction {
+            if (metrics.isNotEmpty()) dao.insertBodyMetrics(metrics)
+            if (checkIns.isNotEmpty()) dao.insertCheckIns(checkIns)
+            if (sets.isNotEmpty()) dao.insertSetLogs(sets)
+        }
+        return ImportSummary(metrics.size, checkIns.size, sets.size)
+    }
+}
+
+data class ImportSummary(val metrics: Int, val checkIns: Int, val sets: Int)
+
+data class WorkoutSessionSnapshot(
+    val session: WorkoutSessionEntity,
+    val setLogs: List<SetLogEntity>,
+)
+
+private object DemoData {
+    val profiles = listOf(
+        ProfileEntity(
+            id = "gerard",
+            displayName = "Gérard",
+            age = 52,
+            goal = "Construire une masse musculaire sèche sans perdre explosivité et mobilité.",
+            targetWeight = "69–70 kg",
+            healthNotes = "Allergie permanente aux protéines de lait de vache.",
+        ),
+        ProfileEntity(
+            id = "sonia",
+            displayName = "Sonia",
+            age = 51,
+            goal = "Tonicité des cuisses, fessiers et sangle abdominale, avec mobilité.",
+            targetWeight = "Tendance et bien-être avant le chiffre",
+            healthNotes = "Capsulite épaule droite et migraines. Aucun mouvement au-dessus de la tête.",
+        ),
+    )
+
+    val exercises = listOf(
+        ExerciseEntity("bike", "Vélo", "Jambes, système cardio-respiratoire", "Selle au niveau de la hanche, genou légèrement fléchi en bas.", "Résistance trop forte dès le départ.", "Marche confortable"),
+        ExerciseEntity("leg_press", "Presse à cuisses", "Quadriceps, fessiers, adducteurs", "Dossier incliné, bassin stable, pieds largeur d'épaules.", "Décoller le bassin, rentrer les genoux, verrouiller brutalement.", "Goblet squat vers banc"),
+        ExerciseEntity("chest_press", "Développé poitrine machine", "Pectoraux, triceps", "Poignées à hauteur de poitrine, omoplates stables.", "Épaules en avant, rebond, amplitude forcée.", "Pompes inclinées", "MODERATE", true),
+        ExerciseEntity("seated_row", "Rowing assis poulie", "Dos, biceps", "Prise neutre, poitrine haute, épaules basses.", "Tirer avec l'élan, avancer le cou.", "Rowing poitrine appuyée", "MODERATE", true),
+        ExerciseEntity("leg_curl", "Leg curl assis", "Ischio-jambiers", "Axe aligné avec le genou, coussin au-dessus des chevilles.", "Donner un élan, cambrer, laisser la pile claquer.", "Leg curl couché"),
+        ExerciseEntity("lateral_raise", "Élévations latérales", "Deltoïdes", "Charge légère et bras dans une amplitude confortable.", "Hausser les épaules, lancer la charge.", "Machine latérale", "MODERATE", true),
+        ExerciseEntity("calf_press", "Mollets à la presse", "Mollets", "Avant-pied stable sur la plateforme.", "Rebondir en bas, raccourcir l'amplitude.", "Mollets debout"),
+        ExerciseEntity("hip_thrust", "Hip thrust guidé", "Grand fessier, ischio-jambiers", "Coussin au pli des hanches, tibias presque verticaux en haut.", "Cambrer, pousser sur la pointe, ouvrir les côtes.", "Pont fessier au sol", "LOW", false),
+        ExerciseEntity("leg_extension", "Leg extension", "Quadriceps", "Axe aligné au genou, dossier soutenant le bassin.", "Lancer la charge, décoller les hanches.", "Presse pieds bas"),
+        ExerciseEntity("abductors", "Abducteurs machine", "Moyen et petit fessier", "Dos soutenu, pieds placés, amplitude confortable.", "Rebondir, avancer la tête.", "Mini-band assis"),
+        ExerciseEntity("dead_bug", "Dead bug bras au sol", "Sangle abdominale", "Bas du dos stable, bras détendus au sol.", "Creuser le dos, accélérer.", "Expiration et rétroversion"),
+        ExerciseEntity("reverse_crunch", "Reverse crunch", "Sangle abdominale", "Bassin stable, mouvement lent.", "Prendre de l'élan, tirer sur la nuque.", "Glissement de talons"),
+    )
+
+    private val phases = listOf(
+        Triple(1..3, "Ancrer", "Installer les réglages et une technique reproductible."),
+        Triple(4..6, "Construire", "Ajouter du volume sans précipiter."),
+        Triple(7..9, "Progresser", "Faire monter les repères avec précision."),
+        Triple(10..12, "Consolider", "Stabiliser les acquis et préparer le bilan."),
+    )
+
+    val templates = buildList {
+        phases.forEachIndexed { phaseIndex, (weeks, phase, intent) ->
+            listOf("A", "B", "C").forEach { code ->
+                add(WorkoutTemplateEntity("gerard_${phaseIndex}_$code", "gerard", weeks.first, weeks.last, code, "$phase · Séance $code", intent))
+                add(WorkoutTemplateEntity("sonia_${phaseIndex}_$code", "sonia", weeks.first, weeks.last, code, "$phase · Séance $code", if (phaseIndex == 0) "Bas du corps, épaule droite neutre et détendue." else intent))
+            }
+        }
+    }
+
+    private data class Prescription(val exercise: String, val sets: Int, val reps: String, val rest: Int, val tempo: String, val rpe: String)
+
+    private val gerardA = listOf(
+        Prescription("leg_press", 3, "8–10", 120, "3–1–1", "6–7"),
+        Prescription("chest_press", 3, "8–10", 120, "3–0–1", "6–7"),
+        Prescription("seated_row", 3, "10–12", 120, "2–1–2", "7"),
+        Prescription("leg_curl", 3, "10–12", 90, "3–1–1", "7"),
+        Prescription("lateral_raise", 2, "12–15", 75, "2–1–2", "7"),
+        Prescription("calf_press", 2, "12–15", 60, "2–1–2", "7"),
+    )
+    private val gerardB = listOf(
+        Prescription("hip_thrust", 3, "8–12", 120, "2–1–1", "6–7"),
+        Prescription("seated_row", 3, "8–12", 120, "2–1–2", "7"),
+        Prescription("chest_press", 3, "8–12", 120, "3–0–1", "7"),
+        Prescription("leg_extension", 2, "12–15", 90, "2–1–2", "7"),
+        Prescription("dead_bug", 2, "6/côté", 60, "lent", "6"),
+    )
+    private val gerardC = listOf(
+        Prescription("leg_press", 3, "10–12", 120, "3–1–1", "7"),
+        Prescription("seated_row", 3, "10–12", 120, "2–1–2", "7"),
+        Prescription("leg_curl", 3, "12–15", 90, "3–1–1", "7"),
+        Prescription("chest_press", 3, "10–12", 120, "3–0–1", "7"),
+    )
+    private val soniaA = listOf(
+        Prescription("bike", 1, "6 min", 0, "souple", "4"),
+        Prescription("leg_press", 3, "10–12", 120, "3–1–1", "6–7"),
+        Prescription("leg_curl", 3, "10–15", 90, "3–1–1", "7"),
+        Prescription("abductors", 3, "12–18", 75, "2–1–2", "7"),
+        Prescription("calf_press", 3, "12–18", 60, "2–1–2", "7"),
+        Prescription("dead_bug", 2, "6/côté", 60, "lent", "5–6"),
+    )
+    private val soniaB = listOf(
+        Prescription("bike", 1, "6 min", 0, "souple", "4"),
+        Prescription("hip_thrust", 3, "10–15", 90, "2–2–1", "6–7"),
+        Prescription("leg_extension", 3, "10–15", 90, "2–1–2", "7"),
+        Prescription("abductors", 2, "12–18", 75, "2–1–2", "7"),
+        Prescription("reverse_crunch", 2, "8–12", 60, "lent", "6"),
+    )
+    private val soniaC = listOf(
+        Prescription("bike", 1, "8 min", 0, "souple", "4–5"),
+        Prescription("leg_press", 3, "12–15", 120, "3–1–1", "7"),
+        Prescription("leg_curl", 3, "12–15", 90, "3–1–1", "7"),
+        Prescription("abductors", 3, "15–20", 75, "2–1–2", "7"),
+        Prescription("hip_thrust", 3, "12–15", 90, "2–2–1", "7"),
+    )
+
+    val workoutExercises = templates.flatMap { template ->
+        val plan = when (template.profileId to template.code) {
+            "gerard" to "A" -> gerardA
+            "gerard" to "B" -> gerardB
+            "gerard" to "C" -> gerardC
+            "sonia" to "A" -> soniaA
+            "sonia" to "B" -> soniaB
+            else -> soniaC
+        }
+        val volumeBonus = if (template.weekFrom >= 4) 1 else 0
+        plan.mapIndexed { index, item ->
+            WorkoutExerciseEntity(
+                templateId = template.id,
+                position = index + 1,
+                exerciseId = item.exercise,
+                sets = if (item.sets == 1) 1 else item.sets + volumeBonus,
+                reps = item.reps,
+                restSeconds = item.rest,
+                tempo = item.tempo,
+                rpe = if (template.weekFrom >= 7 && item.rpe != "4") "8" else item.rpe,
+            )
+        }
+    }
+
+}

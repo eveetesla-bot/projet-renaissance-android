@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.ProjetRenaissance" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">#0C2033</item>
+        <item name="android:navigationBarColor">#0C2033</item>
+    </style>
+</resources>
+
