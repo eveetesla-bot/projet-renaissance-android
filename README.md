@@ -148,6 +148,7 @@ Le lot de refonte médias a été contrôlé le 17 juillet 2026 :
 - 12 visuels principaux et 12 vignettes décodés sur le Pixel 8 ;
 - bibliothèque, fiche Mouvement, plein écran, fiche Machine et séance guidée ;
 - actions Prendre / Choisir affichées et stockage isolé par profil ;
+- sélection d’une photo réelle validée dans Sonia Test : priorité immédiate sur le rendu embarqué, remplacement et suppression disponibles ;
 - vidéo inactive sur les 12 exercices en l’absence d’URL validée ;
 - règles de reset média et migrations Room validées ;
 - 54 tests unitaires réussis ;

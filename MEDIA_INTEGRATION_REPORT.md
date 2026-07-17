@@ -51,6 +51,7 @@ Date : 17 juillet 2026.
 - Mouvement : rendu réaliste, légende et consignes visibles.
 - Plein écran : ouverture et fermeture validées.
 - Machine : rendu générique, boutons Prendre et Choisir, réglages et source visibles.
+- Photo personnelle : sélection réelle validée dans la variante Sonia Test isolée ; la photo remplace immédiatement le rendu générique et les actions Remplacer/Supprimer restent disponibles.
 - Séance guidée : aperçu réaliste et quatre actions visibles ; vidéo grisée.
 - Aucun crash fatal `AndroidRuntime` observé.
 
@@ -60,6 +61,7 @@ Date : 17 juillet 2026.
 - `outputs/media-movement-pixel8.png`
 - `outputs/media-fullscreen-pixel8.png`
 - `outputs/media-machine-pixel8.png`
+- `outputs/media-user-photo-priority-pixel8.png`
 - `outputs/media-workout-pixel8.png`
 - `outputs/media-workout-actions-pixel8.png`
 
