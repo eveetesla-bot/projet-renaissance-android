@@ -3,16 +3,46 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 $projectRoot = $PSScriptRoot
-$jdk = Join-Path $projectRoot "work\toolchain\jdk\jdk-17.0.19+10"
-$sdk = Join-Path $projectRoot "work\toolchain\sdk"
+$bundledJdk = Join-Path $projectRoot "work\toolchain\jdk\jdk-17.0.19+10"
+$bundledSdk = Join-Path $projectRoot "work\toolchain\sdk"
+
+$jdkCandidates = @($bundledJdk)
+if ($env:JAVA_HOME) {
+    $jdkCandidates += $env:JAVA_HOME
+}
+$javaCommand = Get-Command java.exe -ErrorAction SilentlyContinue
+if ($javaCommand) {
+    $jdkCandidates += Split-Path -Parent (Split-Path -Parent $javaCommand.Source)
+}
+$jdk = $jdkCandidates |
+    Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ "bin\java.exe")) } |
+    Select-Object -First 1
+
+$sdkCandidates = @($bundledSdk)
+if ($env:ANDROID_SDK_ROOT) {
+    $sdkCandidates += $env:ANDROID_SDK_ROOT
+}
+if ($env:ANDROID_HOME) {
+    $sdkCandidates += $env:ANDROID_HOME
+}
+if ($env:LOCALAPPDATA) {
+    $sdkCandidates += Join-Path $env:LOCALAPPDATA "Android\Sdk"
+}
+$sdk = $sdkCandidates |
+    Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
+    Select-Object -First 1
+
+if (-not $jdk) {
+    throw "JDK 17 introuvable. Installez JDK 17 dans Android Studio, ou définissez JAVA_HOME avant de relancer."
+}
+if (-not $sdk) {
+    throw "Android SDK introuvable. Installez-le depuis Android Studio, ou définissez ANDROID_SDK_ROOT avant de relancer."
+}
+
 $sdkManager = Join-Path $sdk "cmdline-tools\latest\bin\sdkmanager.bat"
 $platform36 = Join-Path $sdk "platforms\android-36\android.jar"
 $buildTools36 = Join-Path $sdk "build-tools\36.0.0\aapt2.exe"
 $wrapper = Join-Path $projectRoot "gradlew.bat"
-
-if (-not (Test-Path -LiteralPath (Join-Path $jdk "bin\java.exe"))) {
-    throw "JDK local introuvable : $jdk"
-}
 
 $jdkReleaseFile = Join-Path $jdk "release"
 $javaVersion = if (Test-Path -LiteralPath $jdkReleaseFile) { Get-Content -Raw -LiteralPath $jdkReleaseFile } else { "" }
@@ -44,8 +74,8 @@ $env:ANDROID_SDK_ROOT = $sdk
 $env:GRADLE_USER_HOME = Join-Path $projectRoot "work\gradle-user-home"
 
 Write-Host "Projet Renaissance - vérification de la chaîne Android" -ForegroundColor Cyan
-Write-Host "JDK : 17"
-Write-Host "Android SDK : 36"
+Write-Host "JDK 17 : $jdk"
+Write-Host "Android SDK 36 : $sdk"
 Write-Host "Android Build Tools : 36.0.0"
 Write-Host "Android Gradle Plugin : 8.11.1"
 Write-Host "Gradle Wrapper : 8.13"

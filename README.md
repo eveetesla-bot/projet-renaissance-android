@@ -206,6 +206,20 @@ Chaîne du projet :
 - Health Connect 1.1.0 ;
 - `compileSdk 36`, `targetSdk 35`, `minSdk 26`.
 
+## Récupérer le projet sur un autre PC
+
+Le dépôt est public. Dans PowerShell :
+
+```powershell
+git clone https://github.com/eveetesla-bot/projet-renaissance-android.git
+Set-Location .\projet-renaissance-android
+powershell -ExecutionPolicy Bypass -File .\build-local.ps1
+```
+
+Le script utilise en priorité la chaîne locale du projet lorsqu'elle existe.
+Après un clonage neuf, il détecte aussi `JAVA_HOME`, `ANDROID_SDK_ROOT`,
+`ANDROID_HOME` ou l'installation Android Studio standard de Windows.
+
 ## Compiler
 
 Depuis PowerShell à la racine du projet :
@@ -214,7 +228,7 @@ Depuis PowerShell à la racine du projet :
 powershell -ExecutionPolicy Bypass -File .\build-local.ps1
 ```
 
-Le script vérifie JDK 17, Android 36 et Build Tools 36 avant d'exécuter les tests
+Le script détecte et vérifie JDK 17, Android 36 et Build Tools 36 avant d'exécuter les tests
 unitaires et de produire l'application Gérard, Sonia Test et l'APK
 d'instrumentation Sonia.
 
