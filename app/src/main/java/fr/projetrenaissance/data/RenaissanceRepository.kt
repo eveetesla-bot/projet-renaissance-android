@@ -22,12 +22,14 @@ class RenaissanceRepository(private val database: AppDatabase) {
                 endMillis = 1_784_132_700_000L,
             )
             dao.deleteMarkedTestSets()
-            if (dao.profileCount() == 0) {
-                dao.insertProfiles(DemoData.profiles)
-                dao.insertExercises(DemoData.exercises)
-                dao.insertTemplates(DemoData.templates)
-                dao.insertWorkoutExercises(DemoData.workoutExercises)
-            }
+            // Le contenu éditorial (profils, exercices, séances) est réécrit à
+            // chaque lancement : il est idempotent et permet aux installations
+            // existantes de recevoir les corrections de programme sans
+            // réinstallation. Les données utilisateur vivent dans d'autres tables.
+            dao.insertProfiles(DemoData.profiles)
+            dao.insertExercises(DemoData.exercises)
+            dao.insertTemplates(DemoData.templates)
+            dao.insertWorkoutExercises(DemoData.workoutExercises)
         }
     }
 
@@ -322,6 +324,19 @@ private object DemoData {
         ExerciseEntity("abductors", "Abducteurs machine", "Moyen et petit fessier", "Dos soutenu, pieds placés, amplitude confortable.", "Rebondir, avancer la tête.", "Mini-band assis"),
         ExerciseEntity("dead_bug", "Dead bug bras au sol", "Sangle abdominale", "Bas du dos stable, bras détendus au sol.", "Creuser le dos, accélérer.", "Expiration et rétroversion"),
         ExerciseEntity("reverse_crunch", "Reverse crunch", "Sangle abdominale", "Bassin stable, mouvement lent.", "Prendre de l'élan, tirer sur la nuque.", "Glissement de talons"),
+        // Fiches ajoutées pour la fidélité au livre (chapitres 16 à 18).
+        ExerciseEntity("triceps_rope", "Extension triceps à la corde", "Triceps", "Coudes fixés le long du corps, poulie haute, corde tenue prise neutre.", "Écarter les coudes, se pencher pour pousser avec le poids du corps.", "Machine triceps", "LOW", false),
+        ExerciseEntity("lat_pulldown", "Tirage vertical prise neutre", "Grand dorsal, biceps", "Cuisses calées, prise neutre, tirer vers le haut de la poitrine.", "Tirer derrière la nuque, se balancer, épaules vers les oreilles.", "Tractions assistées", "MODERATE", true),
+        ExerciseEntity("incline_press", "Développé incliné machine", "Haut des pectoraux, triceps", "Dossier incliné, poignées au niveau du haut de la poitrine, omoplates posées.", "Décoller les épaules, cambrer exagérément, amplitude douloureuse.", "Haltères prise neutre", "MODERATE", true),
+        ExerciseEntity("reverse_fly", "Reverse fly machine", "Arrière d'épaule, haut du dos", "Poitrine contre le support, bras presque tendus, ouvrir vers l'arrière.", "Charger trop lourd, hausser les épaules, donner de l'élan.", "Oiseau poulie", "MODERATE", true),
+        ExerciseEntity("biceps_curl", "Curl biceps à la poulie", "Biceps", "Coudes le long du corps, poulie basse, montée contrôlée.", "Balancer le buste, avancer les coudes.", "Curl machine", "LOW", false),
+        ExerciseEntity("chest_row", "Rowing poitrine appuyée", "Dos, arrière d'épaule, biceps", "Poitrine posée sur le support, tirer les coudes vers l'arrière sans élan.", "Décoller la poitrine, tirer avec le bas du dos.", "Rowing assis poulie", "MODERATE", true),
+        ExerciseEntity("shoulder_press", "Développé épaules machine", "Deltoïdes, triceps", "Poignées au niveau des oreilles, dos plaqué, trajectoire guidée.", "Cambrer, verrouiller brutalement, descendre trop bas si l'épaule tire.", "Landmine press", "OVERHEAD", true),
+        ExerciseEntity("back_extension", "Extension lombaire à 45°", "Chaîne postérieure, lombaires", "Bassin au bord du coussin, descendre dos neutre puis remonter sans hyperextension.", "Monter en arc de cercle exagéré, prendre de l'élan.", "Bird-dog"),
+        ExerciseEntity("glute_bridge", "Pont fessier au sol", "Grand fessier, ischio-jambiers", "Allongée, pieds près des fessiers, monter le bassin sans cambrer.", "Pousser avec les lombaires, écarter les genoux.", "Hip thrust machine si installation indolore"),
+        ExerciseEntity("step_up", "Step-up bas", "Quadriceps, fessiers, équilibre", "Marche basse et stable, monter par la jambe d'appui sans se hisser du bras.", "S'aider du bras, marche trop haute, genou qui rentre.", "Assis-debout sur banc"),
+        ExerciseEntity("adductors", "Adducteurs machine", "Adducteurs", "Dos soutenu, amplitude confortable, serrer sans à-coup.", "Forcer l'amplitude, rebondir.", "Ballon entre les genoux"),
+        ExerciseEntity("breathing_reset", "Respiration et bassin", "Diaphragme, plancher pelvien, sangle profonde", "Assise ou allongée, expiration longue puis rétroversion douce du bassin.", "Respirer vite, crisper les épaules.", "Assise calme sur banc"),
     )
 
     private val phases = listOf(
@@ -348,20 +363,27 @@ private object DemoData {
         Prescription("seated_row", 3, "10–12", 120, "2–1–2", "7"),
         Prescription("leg_curl", 3, "10–12", 90, "3–1–1", "7"),
         Prescription("lateral_raise", 2, "12–15", 75, "2–1–2", "7"),
+        Prescription("triceps_rope", 2, "10–15", 75, "2–1–2", "7"),
         Prescription("calf_press", 2, "12–15", 60, "2–1–2", "7"),
     )
     private val gerardB = listOf(
         Prescription("hip_thrust", 3, "8–12", 120, "2–1–1", "6–7"),
-        Prescription("seated_row", 3, "8–12", 120, "2–1–2", "7"),
-        Prescription("chest_press", 3, "8–12", 120, "3–0–1", "7"),
+        Prescription("lat_pulldown", 3, "8–12", 120, "2–1–2", "7"),
+        Prescription("incline_press", 3, "8–12", 120, "3–0–1", "7"),
         Prescription("leg_extension", 2, "12–15", 90, "2–1–2", "7"),
+        Prescription("reverse_fly", 2, "12–15", 75, "2–1–2", "7"),
+        Prescription("biceps_curl", 3, "10–12", 75, "2–1–2", "7"),
         Prescription("dead_bug", 2, "6/côté", 60, "lent", "6"),
     )
     private val gerardC = listOf(
         Prescription("leg_press", 3, "10–12", 120, "3–1–1", "7"),
-        Prescription("seated_row", 3, "10–12", 120, "2–1–2", "7"),
-        Prescription("leg_curl", 3, "12–15", 90, "3–1–1", "7"),
+        Prescription("chest_row", 3, "10–12", 120, "2–1–2", "7"),
         Prescription("chest_press", 3, "10–12", 120, "3–0–1", "7"),
+        Prescription("leg_curl", 3, "12–15", 90, "3–1–1", "7"),
+        Prescription("shoulder_press", 2, "8–12", 90, "3–0–1", "6–7"),
+        Prescription("biceps_curl", 2, "12", 75, "2–1–2", "7"),
+        Prescription("triceps_rope", 2, "12", 75, "2–1–2", "7"),
+        Prescription("back_extension", 2, "10–12", 75, "2–1–2", "6"),
     )
     private val soniaA = listOf(
         Prescription("bike", 1, "6 min", 0, "souple", "4"),
@@ -373,9 +395,10 @@ private object DemoData {
     )
     private val soniaB = listOf(
         Prescription("bike", 1, "6 min", 0, "souple", "4"),
-        Prescription("hip_thrust", 3, "10–15", 90, "2–2–1", "6–7"),
+        Prescription("glute_bridge", 3, "10–15", 90, "2–2–1", "6–7"),
         Prescription("leg_extension", 3, "10–15", 90, "2–1–2", "7"),
-        Prescription("abductors", 2, "12–18", 75, "2–1–2", "7"),
+        Prescription("adductors", 2, "12–18", 75, "2–1–2", "7"),
+        Prescription("step_up", 2, "8/côté", 90, "2–1–2", "6"),
         Prescription("reverse_crunch", 2, "8–12", 60, "lent", "6"),
     )
     private val soniaC = listOf(
@@ -383,7 +406,8 @@ private object DemoData {
         Prescription("leg_press", 3, "12–15", 120, "3–1–1", "7"),
         Prescription("leg_curl", 3, "12–15", 90, "3–1–1", "7"),
         Prescription("abductors", 3, "15–20", 75, "2–1–2", "7"),
-        Prescription("hip_thrust", 3, "12–15", 90, "2–2–1", "7"),
+        Prescription("glute_bridge", 3, "12–15", 90, "2–2–1", "7"),
+        Prescription("breathing_reset", 3, "5 cycles", 45, "lent", "3"),
     )
 
     val workoutExercises = templates.flatMap { template ->

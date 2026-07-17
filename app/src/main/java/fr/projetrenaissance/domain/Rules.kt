@@ -20,13 +20,32 @@ object SafetyRules {
 }
 
 object GerardNutritionRules {
+    // Chapitre 14 du livre : « sans lactose » ne signifie pas sans protéines
+    // de lait. La liste couvre les dénominations d'étiquetage courantes.
     private val forbiddenTerms = listOf(
         "whey",
         "caséine",
         "caseine",
+        "casein",
         "lait de vache",
         "fromage blanc",
         "yaourt au lait de vache",
+        "lactosérum",
+        "lactoserum",
+        "petit-lait",
+        "petit lait",
+        "lactalbumine",
+        "lactoglobuline",
+        "protéines de lait",
+        "proteines de lait",
+        "protéine de lait",
+        "proteine de lait",
+        "protéines laitières",
+        "proteines laitieres",
+        "milk protein",
+        "crème laitière",
+        "beurre",
+        "ghee",
     )
 
     fun isSafeSuggestion(text: String): Boolean {

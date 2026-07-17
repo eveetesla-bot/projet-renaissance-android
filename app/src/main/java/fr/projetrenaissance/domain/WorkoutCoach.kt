@@ -31,7 +31,14 @@ data class RepetitionRecommendation(
 )
 
 object WorkoutCoach {
-    private val noExternalLoadExercises = setOf("bike", "dead_bug", "reverse_crunch")
+    private val noExternalLoadExercises = setOf(
+        "bike",
+        "dead_bug",
+        "reverse_crunch",
+        "glute_bridge",
+        "step_up",
+        "breathing_reset",
+    )
 
     fun recommendSession(context: WorkoutCoachContext): SessionRecommendation = when {
         (context.pain ?: 0) >= 7 -> SessionRecommendation(

@@ -450,14 +450,65 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                     timerRunning = remaining > 0,
                     timerEndsAtMillis = if (remaining > 0) timerEndsAt else 0L,
                 )
-                if (remaining <= 0) break
+                if (remaining <= 0) {
+                    signalTimerEnd()
+                    break
+                }
                 delay(250)
             }
         }
     }
 
+    /**
+     * Fin de repos : vibration et/ou signal sonore selon les préférences.
+     * Corrige le fait que les réglages « Vibration du chronomètre » et
+     * « Signal sonore » n'étaient reliés à aucun comportement.
+     */
+    private fun signalTimerEnd() {
+        val preferences = uiState.value.preferences
+        if (preferences.vibrationEnabled) {
+            runCatching {
+                val vibrator = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    val manager = container.context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE)
+                        as android.os.VibratorManager
+                    manager.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    container.context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
+                        as android.os.Vibrator
+                }
+                vibrator.vibrate(
+                    android.os.VibrationEffect.createWaveform(
+                        longArrayOf(0, 350, 150, 350, 150, 600),
+                        -1,
+                    ),
+                )
+            }
+        }
+        if (preferences.soundEnabled) {
+            viewModelScope.launch {
+                runCatching {
+                    val tone = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 85)
+                    tone.startTone(android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 800)
+                    delay(900)
+                    tone.release()
+                }
+            }
+        }
+    }
+
     fun adjustTimer(deltaSeconds: Int) {
-        timerEndsAt = TimerMath.adjust(timerEndsAt, deltaSeconds, System.currentTimeMillis())
+        if (timerEndsAt <= 0L) return
+        val now = System.currentTimeMillis()
+        timerEndsAt = TimerMath.adjust(timerEndsAt, deltaSeconds, now)
+        val remaining = TimerMath.remainingSeconds(timerEndsAt, now)
+        val updated = _workout.value.copy(
+            timerSeconds = remaining,
+            timerRunning = remaining > 0,
+            timerEndsAtMillis = if (remaining > 0) timerEndsAt else 0L,
+        )
+        _workout.value = updated
+        persistWorkoutSession(updated)
     }
 
     fun stopTimer() {
