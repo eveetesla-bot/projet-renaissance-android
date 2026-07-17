@@ -36,6 +36,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import android.net.Uri
+import java.io.File
 
 data class AppUiState(
     val loading: Boolean = true,
@@ -172,6 +174,19 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     fun setVibration(enabled: Boolean) = viewModelScope.launch { container.preferences.setVibration(enabled) }
     fun setClearance(enabled: Boolean) = viewModelScope.launch { container.preferences.setClearance(enabled) }
 
+    fun setMachinePhoto(exerciseId: String, uri: String) = viewModelScope.launch {
+        val profileId = uiState.value.profile?.id ?: return@launch
+        val previous = uiState.value.preferences.machinePhotoUris[exerciseId]
+        if (previous != uri) deleteInternalMachinePhoto(previous)
+        container.preferences.setMachinePhotoUri(profileId, exerciseId, uri)
+    }
+
+    fun removeMachinePhoto(exerciseId: String) = viewModelScope.launch {
+        val profileId = uiState.value.profile?.id ?: return@launch
+        deleteInternalMachinePhoto(uiState.value.preferences.machinePhotoUris[exerciseId])
+        container.preferences.setMachinePhotoUri(profileId, exerciseId, null)
+    }
+
     fun healthPermissions(includeBackground: Boolean = false): Set<String> = buildSet {
         addAll(container.healthData.permissions())
         if (includeBackground) add(HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND)
@@ -218,6 +233,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     fun resetLocalProfile() = viewModelScope.launch {
         val profileId = uiState.value.profile?.id ?: return@launch
+        clearInternalMachinePhotos(profileId)
         container.repository.resetProfileData(profileId)
         container.preferences.resetLocalProfile(profileId)
         HealthConnectSyncWorker.cancel(container.context)
@@ -248,6 +264,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             }
             container.repository.resetAllData()
             container.preferences.resetAll()
+            File(container.context.filesDir, "user_machine_photos").deleteRecursively()
             HealthConnectSyncWorker.cancel(container.context)
             container.repository.seedIfNeeded()
             if (container.context.packageName.endsWith(".soniatest")) {
@@ -260,6 +277,20 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         }.onFailure {
             healthMessage.value = "La remise à zéro totale a échoué : ${it.message}"
         }
+    }
+
+    private fun deleteInternalMachinePhoto(uriValue: String?) {
+        val uri = uriValue?.let(Uri::parse) ?: return
+        if (uri.scheme != "file") return
+        val mediaRoot = File(container.context.filesDir, "user_machine_photos").canonicalFile
+        val candidate = uri.path?.let(::File)?.canonicalFile ?: return
+        if (candidate.path.startsWith(mediaRoot.path + File.separator)) candidate.delete()
+    }
+
+    private fun clearInternalMachinePhotos(profileId: String) {
+        val mediaRoot = File(container.context.filesDir, "user_machine_photos").canonicalFile
+        val profileDirectory = File(mediaRoot, profileId).canonicalFile
+        if (profileDirectory.path.startsWith(mediaRoot.path + File.separator)) profileDirectory.deleteRecursively()
     }
 
     fun completeOnboarding() = viewModelScope.launch {

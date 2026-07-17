@@ -237,7 +237,16 @@ fun RenaissanceApp(viewModel: AppViewModel) {
                     val view = entry.arguments?.getString("view")
                         ?.let { runCatching { ExerciseMediaView.valueOf(it) }.getOrNull() }
                         ?: ExerciseMediaView.MOVEMENT
-                    ExerciseMediaScreen(exercise, activeProfile.id == "sonia", view) { navController.popBackStack() }
+                    ExerciseMediaScreen(
+                        exercise = exercise,
+                        isSonia = activeProfile.id == "sonia",
+                        initialView = view,
+                        profileId = activeProfile.id,
+                        userPhotoUri = uiState.preferences.machinePhotoUris[id],
+                        onUserPhotoChanged = { uri -> viewModel.setMachinePhoto(id, uri) },
+                        onUserPhotoRemoved = { viewModel.removeMachinePhoto(id) },
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
             composable(Routes.WORKOUT) { entry ->
@@ -676,9 +685,12 @@ private fun WorkoutScreen(
                 if (profile.id == "sonia" && current.exercise.shoulderLoad != "NONE") AssistChip(onClick = {}, label = { Text("ÉPAULE · ADAPTER") })
                 TextButton(onClick = { demoExpanded = !demoExpanded }) { Text(if (demoExpanded) "Masquer l’aperçu" else "Voir le mouvement") }
                 if (demoExpanded) {
-                    Text("Illustration locale du mouvement · touchez pour ouvrir la fiche complète", style = MaterialTheme.typography.bodySmall, color = SoftGray)
+                    Text("Visuel réaliste local · touchez pour ouvrir la fiche complète", style = MaterialTheme.typography.bodySmall, color = SoftGray)
                     ExerciseMediaThumbnail(current.exercise.id) { onMedia(current.exercise.id, ExerciseMediaView.MOVEMENT) }
-                    MachineAssetThumbnail(current.exercise.id) { onMedia(current.exercise.id, ExerciseMediaView.MACHINE) }
+                    MachineAssetThumbnail(
+                        current.exercise.id,
+                        appState.preferences.machinePhotoUris[current.exercise.id],
+                    ) { onMedia(current.exercise.id, ExerciseMediaView.MACHINE) }
                 }
                 val media = ExerciseMediaCatalog.forExercise(current.exercise.id)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -687,10 +699,10 @@ private fun WorkoutScreen(
                         modifier = Modifier.weight(1f),
                     ) { Text("VOIR LA MACHINE") }
                     OutlinedButton(
-                        onClick = {},
-                        enabled = media?.verifiedVideoUrl != null,
+                        onClick = { onMedia(current.exercise.id, ExerciseMediaView.VIDEO) },
+                        enabled = media?.videoReference != null,
                         modifier = Modifier.weight(1f),
-                    ) { Text(if (media?.verifiedVideoUrl == null) "VIDÉO À VALIDER" else "VOIR LA VIDÉO") }
+                    ) { Text(if (media?.videoReference == null) "VIDÉO INDISP." else "VOIR LA VIDÉO") }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     OutlinedButton(
@@ -700,7 +712,7 @@ private fun WorkoutScreen(
                     Button(
                         onClick = { onMedia(current.exercise.id, ExerciseMediaView.MOVEMENT) },
                         modifier = Modifier.weight(1f),
-                    ) { Text("FICHE COMPLÈTE") }
+                    ) { Text("VOIR LE MOUVEMENT") }
                 }
             }
             item { PrescriptionCard(current.sets, current.reps, current.tempo, current.rpe, current.restSeconds) }

@@ -11,6 +11,7 @@ class DefaultPreferencesTest {
 
         assertNull(defaults.activeProfileId)
         assertTrue(defaults.sourcePriorities.isEmpty())
+        assertTrue(defaults.machinePhotoUris.isEmpty())
         assertFalse(defaults.healthSyncEnabled)
         assertFalse(defaults.healthBackgroundSyncEnabled)
         assertFalse(defaults.healthWriteEnabled)

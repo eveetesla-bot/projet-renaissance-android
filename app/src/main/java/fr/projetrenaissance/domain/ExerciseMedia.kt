@@ -1,7 +1,43 @@
 package fr.projetrenaissance.domain
 
-enum class ExerciseMediaType { GUIDED_ILLUSTRATION, MACHINE_ILLUSTRATION, MACHINE_PHOTO, VERIFIED_EXTERNAL_VIDEO, BOOK_SHEET }
+enum class ExerciseMediaCategory { PRIMARY_VISUAL, MACHINE_VISUAL, VIDEO, BOOK_REFERENCE }
+enum class ExerciseAssetType { LOCAL_IMAGE, LOCAL_PHOTO, LOCAL_VIDEO, EXTERNAL_IMAGE, EXTERNAL_VIDEO, USER_PHOTO, USER_VIDEO, PLACEHOLDER }
+enum class ExerciseMediaType { GUIDED_ILLUSTRATION, REALISTIC_RENDER, MACHINE_ILLUSTRATION, MACHINE_PHOTO, VERIFIED_EXTERNAL_VIDEO, BOOK_SHEET }
 enum class MediaVerificationStatus { VERIFIED, TO_VALIDATE, MISSING }
+
+data class ExerciseMediaAsset(
+    val id: String,
+    val exerciseId: String,
+    val category: ExerciseMediaCategory,
+    val mediaType: ExerciseAssetType,
+    val localPath: String?,
+    val localThumbnailPath: String?,
+    val externalUrl: String?,
+    val title: String,
+    val subtitle: String,
+    val sourceName: String?,
+    val sourceUrl: String?,
+    val sourceLicense: String?,
+    val verificationDate: String?,
+    val isVerified: Boolean,
+    val canUseOffline: Boolean,
+    val userProvided: Boolean,
+    val isMachinePhoto: Boolean,
+    val isPrimaryVisual: Boolean,
+    val notes: String?,
+)
+
+data class VideoReference(
+    val id: String,
+    val exerciseId: String,
+    val title: String,
+    val url: String,
+    val sourceName: String,
+    val verificationDate: String,
+    val sourceType: String,
+    val canOpenInline: Boolean,
+    val notes: String,
+)
 
 data class GuidedMovement(
     val startPosition: String,
@@ -36,6 +72,8 @@ data class ExerciseMedia(
     val bookLocator: String,
     val verificationDate: String,
     val accessibilityDescription: String,
+    val assets: List<ExerciseMediaAsset> = emptyList(),
+    val videoReference: VideoReference? = null,
 )
 
 object ExerciseMediaCatalog {
@@ -71,14 +109,14 @@ object ExerciseMediaCatalog {
         expectedType = expected,
         genericName = generic,
         possibleVariants = variants,
-        localResource = "machine_$exerciseId",
+        localResource = "primary_$exerciseId",
         userPhotoUri = null,
-        source = "Illustration vectorielle originale Projet Renaissance",
+        source = "Rendu original quasi-photoréaliste Projet Renaissance",
         verificationStatus = MediaVerificationStatus.VERIFIED,
         adjustmentLandmarks = landmarks,
     )
 
-    val all = listOf(
+    private val editorial = listOf(
         ExerciseMedia(
             "bike",
             guided("Bassin centré sur la selle.", "Pédale à mi-course, genou aligné.", "Jambe presque tendue en bas.", "Rotation régulière du pédalier.", "Hanche et genou.", "Selle, pieds dans les pédales, mains légères.", "Genou encore légèrement fléchi au point bas.", "Poussée fluide du pied."),
@@ -152,6 +190,97 @@ object ExerciseMediaCatalog {
             null, null, "Livre · fiche Reverse crunch", "2026-07-16", "Départ, enroulement du bassin et retour lent.",
         ),
     )
+
+    private fun withAssets(media: ExerciseMedia): ExerciseMedia {
+        val hasMachine = media.exerciseId !in setOf("dead_bug", "reverse_crunch")
+        val primary = ExerciseMediaAsset(
+            id = "${media.exerciseId}_primary",
+            exerciseId = media.exerciseId,
+            category = ExerciseMediaCategory.PRIMARY_VISUAL,
+            mediaType = ExerciseAssetType.LOCAL_IMAGE,
+            localPath = "primary_${media.exerciseId}",
+            localThumbnailPath = "thumb_${media.exerciseId}",
+            externalUrl = null,
+            title = "Voir le mouvement",
+            subtitle = "Rendu réaliste original disponible hors connexion",
+            sourceName = "Génération originale Projet Renaissance",
+            sourceUrl = null,
+            sourceLicense = "Création originale générée pour ce projet ; aucune source tierce intégrée",
+            verificationDate = "2026-07-17",
+            isVerified = true,
+            canUseOffline = true,
+            userProvided = false,
+            isMachinePhoto = false,
+            isPrimaryVisual = true,
+            notes = "Rendu quasi-photoréaliste pédagogique, non lié à une marque ou à un modèle constructeur.",
+        )
+        val machine = ExerciseMediaAsset(
+            id = "${media.exerciseId}_machine",
+            exerciseId = media.exerciseId,
+            category = ExerciseMediaCategory.MACHINE_VISUAL,
+            mediaType = if (hasMachine) ExerciseAssetType.LOCAL_IMAGE else ExerciseAssetType.PLACEHOLDER,
+            localPath = if (hasMachine) "primary_${media.exerciseId}" else null,
+            localThumbnailPath = if (hasMachine) "thumb_${media.exerciseId}" else null,
+            externalUrl = null,
+            title = if (hasMachine) "Voir la machine" else "Aucune machine requise",
+            subtitle = if (hasMachine) "Vue générique intégrée ; photo personnelle prioritaire" else "Exercice au sol sur tapis",
+            sourceName = if (hasMachine) "Génération originale Projet Renaissance" else null,
+            sourceUrl = null,
+            sourceLicense = if (hasMachine) "Création originale générée pour ce projet ; aucune source tierce intégrée" else null,
+            verificationDate = "2026-07-17",
+            isVerified = true,
+            canUseOffline = true,
+            userProvided = false,
+            isMachinePhoto = hasMachine,
+            isPrimaryVisual = false,
+            notes = if (hasMachine) "La photo utilisateur peut remplacer cette vue sans supprimer le média embarqué." else "Le tapis est présenté dans le visuel principal.",
+        )
+        val video = ExerciseMediaAsset(
+            id = "${media.exerciseId}_video",
+            exerciseId = media.exerciseId,
+            category = ExerciseMediaCategory.VIDEO,
+            mediaType = ExerciseAssetType.PLACEHOLDER,
+            localPath = null,
+            localThumbnailPath = null,
+            externalUrl = null,
+            title = "Voir la vidéo",
+            subtitle = "Aucune vidéo validée",
+            sourceName = null,
+            sourceUrl = null,
+            sourceLicense = null,
+            verificationDate = "2026-07-17",
+            isVerified = false,
+            canUseOffline = false,
+            userProvided = false,
+            isMachinePhoto = false,
+            isPrimaryVisual = false,
+            notes = "Le bouton reste désactivé tant qu’une URL fiable n’a pas été validée.",
+        )
+        val book = ExerciseMediaAsset(
+            id = "${media.exerciseId}_book",
+            exerciseId = media.exerciseId,
+            category = ExerciseMediaCategory.BOOK_REFERENCE,
+            mediaType = ExerciseAssetType.PLACEHOLDER,
+            localPath = null,
+            localThumbnailPath = null,
+            externalUrl = null,
+            title = "Voir dans le livre",
+            subtitle = media.bookLocator,
+            sourceName = "Projet Renaissance – Gérard & Sonia",
+            sourceUrl = null,
+            sourceLicense = "Contenu éditorial fourni avec le projet",
+            verificationDate = "2026-07-17",
+            isVerified = true,
+            canUseOffline = true,
+            userProvided = false,
+            isMachinePhoto = false,
+            isPrimaryVisual = false,
+            notes = "Fiche éditoriale locale ; ouverture paginée du document source prévue ultérieurement.",
+        )
+        return media.copy(assets = listOf(primary, machine, video, book), videoReference = null)
+    }
+
+    val all: List<ExerciseMedia> = editorial.map(::withAssets)
 
     fun forExercise(exerciseId: String): ExerciseMedia? = all.firstOrNull { it.exerciseId == exerciseId }
 }

@@ -2,16 +2,23 @@ package fr.projetrenaissance.presentation
 
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,27 +48,38 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import fr.projetrenaissance.R
 import fr.projetrenaissance.data.ExerciseEntity
 import fr.projetrenaissance.domain.ExerciseMediaCatalog
+import fr.projetrenaissance.domain.ExerciseMediaCategory
+import fr.projetrenaissance.domain.ExerciseAssetType
 import kotlinx.coroutines.delay
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
 fun ExerciseMediaThumbnail(exerciseId: String, onOpen: () -> Unit) {
-    val media = ExerciseMediaCatalog.forExercise(exerciseId) ?: return
-    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-        Column(Modifier.padding(10.dp)) {
-            ExerciseMovementCanvas(exerciseId, 1, Modifier.fillMaxWidth().height(105.dp), media.accessibilityDescription)
+    if (ExerciseMediaCatalog.forExercise(exerciseId) == null) return
+    Card(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(3.dp),
+    ) {
+        Column {
+            PrimaryMediaImage(exerciseId, Modifier.fillMaxWidth().aspectRatio(3f / 2f), thumbnail = true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Démonstration locale · 3 positions", style = MaterialTheme.typography.bodySmall)
+                Text("Mouvement réaliste · hors connexion", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
                 Text("OUVRIR", color = Copper, fontWeight = FontWeight.Bold)
             }
         }
@@ -69,20 +87,31 @@ fun ExerciseMediaThumbnail(exerciseId: String, onOpen: () -> Unit) {
 }
 
 @DrawableRes
-fun machineDrawableFor(exerciseId: String): Int = when (exerciseId) {
-    "bike" -> R.drawable.machine_bike
-    "leg_press" -> R.drawable.machine_leg_press
-    "chest_press" -> R.drawable.machine_chest_press
-    "seated_row" -> R.drawable.machine_seated_row
-    "leg_curl" -> R.drawable.machine_leg_curl
-    "lateral_raise" -> R.drawable.machine_lateral_raise
-    "calf_press" -> R.drawable.machine_calf_press
-    "hip_thrust" -> R.drawable.machine_hip_thrust
-    "leg_extension" -> R.drawable.machine_leg_extension
-    "abductors" -> R.drawable.machine_abductors
-    "dead_bug" -> R.drawable.machine_dead_bug
-    "reverse_crunch" -> R.drawable.machine_reverse_crunch
-    else -> R.drawable.machine_bike
+fun primaryDrawableFor(exerciseId: String, thumbnail: Boolean = false): Int = when (exerciseId) {
+    "bike" -> if (thumbnail) R.drawable.thumb_bike else R.drawable.primary_bike
+    "leg_press" -> if (thumbnail) R.drawable.thumb_leg_press else R.drawable.primary_leg_press
+    "chest_press" -> if (thumbnail) R.drawable.thumb_chest_press else R.drawable.primary_chest_press
+    "seated_row" -> if (thumbnail) R.drawable.thumb_seated_row else R.drawable.primary_seated_row
+    "leg_curl" -> if (thumbnail) R.drawable.thumb_leg_curl else R.drawable.primary_leg_curl
+    "lateral_raise" -> if (thumbnail) R.drawable.thumb_lateral_raise else R.drawable.primary_lateral_raise
+    "calf_press" -> if (thumbnail) R.drawable.thumb_calf_press else R.drawable.primary_calf_press
+    "hip_thrust" -> if (thumbnail) R.drawable.thumb_hip_thrust else R.drawable.primary_hip_thrust
+    "leg_extension" -> if (thumbnail) R.drawable.thumb_leg_extension else R.drawable.primary_leg_extension
+    "abductors" -> if (thumbnail) R.drawable.thumb_abductors else R.drawable.primary_abductors
+    "dead_bug" -> if (thumbnail) R.drawable.thumb_dead_bug else R.drawable.primary_dead_bug
+    "reverse_crunch" -> if (thumbnail) R.drawable.thumb_reverse_crunch else R.drawable.primary_reverse_crunch
+    else -> if (thumbnail) R.drawable.thumb_bike else R.drawable.primary_bike
+}
+
+@Composable
+fun PrimaryMediaImage(exerciseId: String, modifier: Modifier = Modifier, thumbnail: Boolean = false) {
+    val media = ExerciseMediaCatalog.forExercise(exerciseId)
+    Image(
+        painter = painterResource(primaryDrawableFor(exerciseId, thumbnail)),
+        contentDescription = media?.accessibilityDescription,
+        modifier = modifier,
+        contentScale = ContentScale.Crop,
+    )
 }
 
 @Composable
@@ -96,7 +125,10 @@ fun MachineAssetImage(
     val userPhoto = remember(userPhotoUri) {
         userPhotoUri?.let { value ->
             runCatching {
-                context.contentResolver.openInputStream(Uri.parse(value))?.use(BitmapFactory::decodeStream)?.asImageBitmap()
+                val uri = Uri.parse(value)
+                val bitmap = if (uri.scheme == "file") BitmapFactory.decodeFile(uri.path)
+                else context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
+                bitmap?.asImageBitmap()
             }.getOrNull()
         }
     }
@@ -105,24 +137,24 @@ fun MachineAssetImage(
             bitmap = userPhoto,
             contentDescription = media?.let { "Photo personnelle de ${it.machine.genericName}" },
             modifier = modifier,
-            contentScale = ContentScale.Fit,
+            contentScale = ContentScale.Crop,
         )
     } else {
         Image(
-            painter = painterResource(machineDrawableFor(exerciseId)),
-            contentDescription = media?.let { "Illustration originale de ${it.machine.genericName}" },
+            painter = painterResource(primaryDrawableFor(exerciseId)),
+            contentDescription = media?.let { "Vue réaliste originale de ${it.machine.genericName}" },
             modifier = modifier,
-            contentScale = ContentScale.Fit,
+            contentScale = ContentScale.Crop,
         )
     }
 }
 
 @Composable
-fun MachineAssetThumbnail(exerciseId: String, onOpen: () -> Unit) {
+fun MachineAssetThumbnail(exerciseId: String, userPhotoUri: String? = null, onOpen: () -> Unit) {
     val media = ExerciseMediaCatalog.forExercise(exerciseId) ?: return
     Card(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Column(Modifier.padding(10.dp)) {
-            MachineAssetImage(exerciseId, Modifier.fillMaxWidth().height(128.dp))
+            MachineAssetImage(exerciseId, Modifier.fillMaxWidth().aspectRatio(3f / 2f).clip(RoundedCornerShape(18.dp)), userPhotoUri)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(media.machine.genericName, style = MaterialTheme.typography.bodySmall, color = SoftGray)
                 Text("VOIR LA MACHINE", color = Copper, fontWeight = FontWeight.Bold)
@@ -131,7 +163,7 @@ fun MachineAssetThumbnail(exerciseId: String, onOpen: () -> Unit) {
     }
 }
 
-enum class ExerciseMediaView { MOVEMENT, MACHINE, BOOK }
+enum class ExerciseMediaView { MOVEMENT, MACHINE, VIDEO, BOOK }
 
 @Composable
 fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -> Unit) {
@@ -144,7 +176,7 @@ fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -
         elevation = CardDefaults.cardElevation(2.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            MachineAssetImage(exercise.id, Modifier.fillMaxWidth().height(170.dp))
+            PrimaryMediaImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f).clip(RoundedCornerShape(18.dp)), thumbnail = true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(exercise.name, style = MaterialTheme.typography.titleLarge, color = DeepNavy)
@@ -156,7 +188,7 @@ fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -
                 AssistChip(onClick = {}, label = { Text("ÉPAULE · PRUDENCE") })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Illustration machine originale · hors connexion", style = MaterialTheme.typography.bodySmall, color = SoftGray)
+                Text("Visuel réaliste original · hors connexion", style = MaterialTheme.typography.bodySmall, color = SoftGray)
                 Text("VOIR LA FICHE  →", style = MaterialTheme.typography.labelLarge, color = Copper)
             }
         }
@@ -165,6 +197,198 @@ fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -
 
 @Composable
 fun ExerciseMediaScreen(
+    exercise: ExerciseEntity,
+    isSonia: Boolean,
+    initialView: ExerciseMediaView,
+    profileId: String,
+    userPhotoUri: String?,
+    onUserPhotoChanged: (String) -> Unit,
+    onUserPhotoRemoved: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val media = ExerciseMediaCatalog.forExercise(exercise.id) ?: return
+    val context = LocalContext.current
+    var selectedView by remember(initialView) { mutableStateOf(initialView) }
+    var fullScreen by remember { mutableStateOf(false) }
+    val machineAsset = media.assets.first { it.category == ExerciseMediaCategory.MACHINE_VISUAL }
+    val hasMachine = machineAsset.mediaType != ExerciseAssetType.PLACEHOLDER
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        onUserPhotoChanged(uri.toString())
+    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        bitmap ?: return@rememberLauncherForActivityResult
+        runCatching {
+            val directory = File(context.filesDir, "user_machine_photos/$profileId").apply { mkdirs() }
+            val target = File(directory, "${exercise.id}.jpg")
+            FileOutputStream(target).use { output -> bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, output) }
+            onUserPhotoChanged(Uri.fromFile(target).toString())
+        }
+    }
+
+    if (fullScreen) {
+        Dialog(onDismissRequest = { fullScreen = false }) {
+            Box(
+                Modifier.fillMaxSize().background(Color.Black).clickable { fullScreen = false },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selectedView == ExerciseMediaView.MACHINE) {
+                    MachineAssetImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f), userPhotoUri)
+                } else {
+                    PrimaryMediaImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f))
+                }
+            }
+        }
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item { TextButton(onClick = onBack) { Text("← Retour") } }
+        item {
+            EditorialPageHeader(
+                when (selectedView) {
+                    ExerciseMediaView.MOVEMENT -> "Voir le mouvement"
+                    ExerciseMediaView.MACHINE -> "Voir la machine"
+                    ExerciseMediaView.VIDEO -> "Voir la vidéo"
+                    ExerciseMediaView.BOOK -> "Voir dans le livre"
+                },
+                exercise.name,
+                exercise.muscles,
+            )
+            if (isSonia && exercise.shoulderLoad != "NONE") {
+                AssistChip(onClick = {}, label = { Text("ÉPAULE · ADAPTER L’AMPLITUDE") })
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Button(onClick = { selectedView = ExerciseMediaView.MOVEMENT }, modifier = Modifier.weight(1f)) { Text("MOUVEMENT") }
+                    OutlinedButton(onClick = { selectedView = ExerciseMediaView.MACHINE }, modifier = Modifier.weight(1f)) { Text("MACHINE") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    OutlinedButton(
+                        onClick = { selectedView = ExerciseMediaView.VIDEO },
+                        enabled = media.videoReference != null,
+                        modifier = Modifier.weight(1f),
+                    ) { Text(if (media.videoReference == null) "VIDÉO INDISP." else "VIDÉO") }
+                    OutlinedButton(onClick = { selectedView = ExerciseMediaView.BOOK }, modifier = Modifier.weight(1f)) { Text("LIVRE") }
+                }
+            }
+        }
+
+        when (selectedView) {
+            ExerciseMediaView.MOVEMENT -> {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Paper),
+                        elevation = CardDefaults.cardElevation(4.dp),
+                    ) {
+                        Column {
+                            PrimaryMediaImage(
+                                exercise.id,
+                                Modifier.fillMaxWidth().aspectRatio(3f / 2f).clickable { fullScreen = true },
+                            )
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("RENDU ORIGINAL · HORS CONNEXION", style = MaterialTheme.typography.labelLarge, color = Copper)
+                                Text(media.assets.first { it.category == ExerciseMediaCategory.PRIMARY_VISUAL }.subtitle, color = SoftGray)
+                                Text("Touchez l’image pour l’afficher en plein écran.", style = MaterialTheme.typography.bodySmall, color = Sage)
+                            }
+                        }
+                    }
+                }
+                item {
+                    PremiumSurfaceCard {
+                        ExerciseSection("Position de départ", media.guidedIllustration.startPosition, Copper)
+                        ExerciseSection("Trajectoire", media.guidedIllustration.trajectory, Navy)
+                        ExerciseSection("Appuis", media.guidedIllustration.supports, Sage)
+                        ExerciseSection("Amplitude conseillée", media.guidedIllustration.recommendedRange, Copper)
+                        ExerciseSection("Respiration", media.guidedIllustration.breathing, Navy)
+                        ExerciseSection("Réglage", exercise.machineSetup, Sage)
+                        ExerciseSection("Erreurs à éviter", exercise.commonErrors, Copper)
+                        ExerciseSection("Alternative", exercise.alternative, Sage)
+                    }
+                }
+                item { CoachTipCard("Le rendu aide à identifier la posture et l’équipement. Ajuste toujours la machine à ta morphologie et arrête en cas de douleur.", "Conseil Renaissance") }
+            }
+            ExerciseMediaView.MACHINE -> {
+                item {
+                    Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Paper), elevation = CardDefaults.cardElevation(4.dp)) {
+                        Column {
+                            MachineAssetImage(
+                                exercise.id,
+                                Modifier.fillMaxWidth().aspectRatio(3f / 2f).clickable { fullScreen = true },
+                                userPhotoUri,
+                            )
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(media.machine.genericName, style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
+                                Text(
+                                    when {
+                                        userPhotoUri != null -> "PHOTO PERSONNELLE · PRIORITAIRE"
+                                        hasMachine -> "RENDU GÉNÉRIQUE ORIGINAL · PHOTO PERSONNELLE POSSIBLE"
+                                        else -> "AUCUNE MACHINE REQUISE · EXERCICE AU SOL"
+                                    },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (userPhotoUri != null) Sage else Copper,
+                                )
+                                Text(if (hasMachine) "Vue non liée à une marque ni à un modèle constructeur exact." else "Utilise un tapis stable et un espace dégagé.", color = SoftGray)
+                                if (hasMachine) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        OutlinedButton(onClick = { camera.launch(null) }, modifier = Modifier.weight(1f)) { Text("PRENDRE") }
+                                        OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Text("CHOISIR") }
+                                    }
+                                    if (userPhotoUri != null) {
+                                        OutlinedButton(onClick = onUserPhotoRemoved, modifier = Modifier.fillMaxWidth()) { Text("SUPPRIMER LA PHOTO PERSONNELLE") }
+                                    }
+                                }
+                                ExerciseSection("Repères de réglage", media.machine.adjustmentLandmarks, Sage)
+                                ExerciseSection("Variantes possibles", media.machine.possibleVariants, Copper)
+                                ExerciseSection("Source", machineAsset.sourceName ?: "Sans objet", Navy)
+                            }
+                        }
+                    }
+                }
+            }
+            ExerciseMediaView.VIDEO -> {
+                item {
+                    PremiumSurfaceCard(tone = PremiumTone.SAGE) {
+                        Text("VIDÉO NON DISPONIBLE", style = MaterialTheme.typography.labelLarge, color = Copper)
+                        Text("Aucune vidéo fiable n’a encore été validée pour cet exercice.", style = MaterialTheme.typography.titleMedium, color = DeepNavy)
+                        Text("Le bouton reste volontairement désactivé : aucune URL n’est inventée et aucun contenu non vérifié n’est ouvert.", color = SoftGray)
+                    }
+                }
+            }
+            ExerciseMediaView.BOOK -> {
+                item {
+                    PremiumSurfaceCard(tone = PremiumTone.SAGE) {
+                        Text("FICHE ÉDITORIALE", style = MaterialTheme.typography.labelLarge, color = Sage)
+                        Text(media.bookLocator, style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
+                        Text("La fiche locale reprend les consignes du livre utiles pendant la séance.", color = SoftGray)
+                        ExerciseSection("Réglage", exercise.machineSetup, Sage)
+                        ExerciseSection("Erreurs à éviter", exercise.commonErrors, Copper)
+                        ExerciseSection("Alternative", exercise.alternative, Sage)
+                    }
+                }
+            }
+        }
+        item {
+            Text(
+                "Média original vérifié le 17 juillet 2026 · aide pédagogique, sans valeur d’avis médical.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftGray,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LegacyExerciseMediaScreen(
     exercise: ExerciseEntity,
     isSonia: Boolean,
     initialView: ExerciseMediaView,
@@ -188,6 +412,7 @@ fun ExerciseMediaScreen(
                 when (selectedView) {
                     ExerciseMediaView.MOVEMENT -> "Fiche mouvement"
                     ExerciseMediaView.MACHINE -> "Vue machine"
+                    ExerciseMediaView.VIDEO -> "Vidéo"
                     ExerciseMediaView.BOOK -> "Fiche du livre"
                 },
                 exercise.name,

@@ -10,6 +10,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore("renaissance_preferences")
+private val mediaExerciseIds = listOf(
+    "bike", "leg_press", "chest_press", "seated_row", "leg_curl", "lateral_raise",
+    "calf_press", "hip_thrust", "leg_extension", "abductors", "dead_bug", "reverse_crunch",
+)
 
 data class UserPreferences(
     val activeProfileId: String? = null,
@@ -21,6 +25,7 @@ data class UserPreferences(
     val healthBackgroundSyncEnabled: Boolean = false,
     val healthWriteEnabled: Boolean = false,
     val sourcePriorities: Map<String, String> = emptyMap(),
+    val machinePhotoUris: Map<String, String> = emptyMap(),
     val onboardingCompleted: Boolean = false,
     val lastHealthSyncAt: Long = 0L,
 )
@@ -55,6 +60,9 @@ class UserPreferencesRepository(private val context: Context) {
             sourcePriorities = if (activeProfile == null) emptyMap() else listOf("SLEEP_SESSION", "STEPS", "EXERCISE_SESSION").mapNotNull { type ->
                 values[stringPreferencesKey("health_priority_${activeProfile}_$type")]?.substringBefore(',')?.let { type to it }
             }.toMap(),
+            machinePhotoUris = if (activeProfile == null) emptyMap() else mediaExerciseIds.mapNotNull { exerciseId ->
+                values[stringPreferencesKey("machine_photo_${activeProfile}_$exerciseId")]?.let { exerciseId to it }
+            }.toMap(),
         )
     }
 
@@ -78,10 +86,21 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { it[key] = sources.joinToString(",") }
     }
 
+    suspend fun setMachinePhotoUri(profileId: String, exerciseId: String, uri: String?) {
+        require(exerciseId in mediaExerciseIds) { "Exercice média inconnu : $exerciseId" }
+        val key = stringPreferencesKey("machine_photo_${profileId}_$exerciseId")
+        context.dataStore.edit { values ->
+            if (uri.isNullOrBlank()) values.remove(key) else values[key] = uri
+        }
+    }
+
     suspend fun resetLocalProfile(profileId: String) {
         context.dataStore.edit { values ->
             listOf("SLEEP_SESSION", "STEPS", "EXERCISE_SESSION").forEach { type ->
                 values.remove(stringPreferencesKey("health_priority_${profileId}_$type"))
+            }
+            mediaExerciseIds.forEach { exerciseId ->
+                values.remove(stringPreferencesKey("machine_photo_${profileId}_$exerciseId"))
             }
             values.remove(Keys.healthSync)
             values.remove(Keys.healthBackgroundSync)

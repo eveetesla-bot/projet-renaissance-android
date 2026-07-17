@@ -1,29 +1,32 @@
 # Projet Renaissance
 
-## Illustrations originales des équipements
+## Médias réalistes hors connexion
 
-- 12 SVG originaux dans `assets/machines/`, sans logo ni modèle constructeur ;
-- 12 PNG Android 1200 × 800 dans `app/src/main/res/drawable-nodpi/` ;
-- affichage dans la bibliothèque, l’aperçu de séance, la fiche mouvement et la
-  vue machine plein écran ;
-- l’illustration reste le repli hors connexion ;
-- une future photo personnelle peut prendre la priorité via `userPhotoUri` sans
-  supprimer l’asset original ;
-- direction artistique : `MACHINE_ART_DIRECTION.md` ;
-- index complet : `MACHINE_ASSET_INDEX.md`.
+- 12 rendus quasi-photoréalistes originaux, sans logo ni modèle constructeur ;
+- masters PNG 1536 × 1024 dans `assets/media/primary/` ;
+- 12 ressources WebP 1200 × 800 et 12 vignettes 600 × 400 dans l’application ;
+- affichage 3:2 dans la bibliothèque, la séance guidée et les fiches ;
+- plein écran au toucher ;
+- quatre accès distincts : Mouvement, Machine, Vidéo et Livre ;
+- photo de machine personnelle réellement fonctionnelle : prendre, choisir,
+  remplacer et supprimer ;
+- photo personnelle isolée par profil et prioritaire sur le rendu embarqué ;
+- aucune URL vidéo activée tant qu’elle n’est pas réellement validée.
 
-Rapport réel Pixel 8 : `MACHINE_ASSET_DEVICE_TEST_REPORT.md`.
+Documents du lot : `MEDIA_REDESIGN_PLAN.md`, `MEDIA_SOURCES_INDEX.md`,
+`VERIFIED_VIDEO_LINKS.md`, `MACHINE_MEDIA_STATUS.md` et
+`MEDIA_INTEGRATION_REPORT.md`.
 
-## Nouveau lot ciblé
+## Séance et réinitialisations
 
-- Les 12 fiches disposent de positions départ/intermédiaire/finale, trajectoire,
-  pivot, appuis, amplitude, respiration et zone d’effort.
-- Chaque exercice sépare mouvement, machine, vidéo vérifiée et livre.
-- Aucune fausse photo ni fausse URL n’est fournie. Les 12 photos de machines
-  restent explicitement « à valider » ; voir `MACHINE_PHOTO_PLAN.md`.
+- Les 12 fiches conservent trajectoire, pivot, appuis, amplitude, respiration et
+  zone d’effort avec un visuel principal réaliste.
 - « Recommencer la séance » utilise un identifiant de session Room persistant et
   remet atomiquement à zéro séries, RPE, note, douleur et repos.
 - Le profil propose trois niveaux : journée, profil local et total.
+- Recommencer et reset journée conservent les médias ; reset profil supprime
+  uniquement les médias utilisateur du profil ; reset total supprime tous les
+  médias utilisateur mais jamais les assets embarqués.
 - Après une remise à zéro totale, l’application revient au choix du profil et
   révoque son accès Health Connect sans supprimer les mesures système.
 - Le parcours de démarrage place les autorisations et la première
@@ -52,7 +55,7 @@ conçue pour rester utilisable hors connexion en salle de sport.
 - bouton confirmé pour recommencer et effacer uniquement la progression de la
   séance courante ;
 - chronomètre avec actions ±15 secondes ;
-- bibliothèque de 12 exercices avec guides de mouvement hors connexion ;
+- bibliothèque de 12 exercices avec rendus réalistes hors connexion ;
 - suivi local et graphiques calendaires sur 7 jours, 30 jours et 12 semaines ;
 - nutrition locale, recettes et protections contre les protéines de lait de
   vache ;
@@ -122,7 +125,7 @@ charge externe peuvent commencer explicitement à `0 kg`.
 
 Le coach ne déduit jamais une charge machine du sexe ou de l'âge. Il maintient
 ou réduit une charge personnelle connue ; sans historique, il demande une
-calibration légère. Les illustrations locales sont ouvertes par défaut avant
+calibration légère. Les médias locaux sont ouverts par défaut avant
 chaque exercice. Voir [WORKOUT_COACH_REPORT.md](WORKOUT_COACH_REPORT.md).
 
 ## Sources Health Connect
@@ -139,6 +142,21 @@ données compatibles ; Basic-Fit n'en fournit aucune et reste indisponible.
 ## Testé sur appareil
 
 Appareil de référence : Google Pixel 8 (`shiba`).
+
+Le lot de refonte médias a été contrôlé le 17 juillet 2026 :
+
+- 12 visuels principaux et 12 vignettes décodés sur le Pixel 8 ;
+- bibliothèque, fiche Mouvement, plein écran, fiche Machine et séance guidée ;
+- actions Prendre / Choisir affichées et stockage isolé par profil ;
+- vidéo inactive sur les 12 exercices en l’absence d’URL validée ;
+- règles de reset média et migrations Room validées ;
+- 54 tests unitaires réussis ;
+- 19 tests instrumentés réussis ;
+- `BUILD SUCCESSFUL` sur 108 tâches Gradle ;
+- installation Gérard par mise à jour, sans effacement de ses données ;
+- aucune exception Android fatale observée.
+
+Rapport : [MEDIA_INTEGRATION_REPORT.md](MEDIA_INTEGRATION_REPORT.md).
 
 Le dernier lot correctif a été contrôlé le 16 juillet 2026 :
 
