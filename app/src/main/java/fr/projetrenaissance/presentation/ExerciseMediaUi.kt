@@ -72,8 +72,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
-fun ExerciseMediaThumbnail(exerciseId: String, onOpen: () -> Unit) {
-    if (ExerciseMediaCatalog.forExercise(exerciseId) == null) return
+fun ExerciseMediaThumbnail(exerciseId: String, profileId: String? = null, onOpen: () -> Unit) {
+    if (ExerciseMediaCatalog.forExercise(exerciseId) == null && exerciseArtFor(exerciseId, profileId) == null) return
     Card(
         onClick = onOpen,
         modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
@@ -81,13 +81,67 @@ fun ExerciseMediaThumbnail(exerciseId: String, onOpen: () -> Unit) {
         elevation = CardDefaults.cardElevation(3.dp),
     ) {
         Column {
-            PrimaryMediaImage(exerciseId, Modifier.fillMaxWidth().aspectRatio(3f / 2f), thumbnail = true)
+            PrimaryMediaImage(exerciseId, Modifier.fillMaxWidth().aspectRatio(3f / 2f), thumbnail = true, profileId = profileId)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Mouvement réaliste · hors connexion", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
                 Text("OUVRIR", color = Copper, fontWeight = FontWeight.Bold)
             }
         }
     }
+}
+
+private data class ExerciseArt(@DrawableRes val full: Int, @DrawableRes val thumb: Int)
+
+// Pack d'illustrations éditoriales personnalisées (variante par profil :
+// Gérard tatouage avant-bras gauche, Sonia épaule droite neutre).
+private val gerardArt = mapOf(
+    "leg_press" to ExerciseArt(R.drawable.ex_g_leg_press, R.drawable.ex_g_leg_press_t),
+    "chest_press" to ExerciseArt(R.drawable.ex_g_chest_press, R.drawable.ex_g_chest_press_t),
+    "seated_row" to ExerciseArt(R.drawable.ex_g_seated_row, R.drawable.ex_g_seated_row_t),
+    "leg_curl" to ExerciseArt(R.drawable.ex_g_leg_curl, R.drawable.ex_g_leg_curl_t),
+    "lateral_raise" to ExerciseArt(R.drawable.ex_g_lateral_raise, R.drawable.ex_g_lateral_raise_t),
+    "triceps_rope" to ExerciseArt(R.drawable.ex_g_triceps_rope, R.drawable.ex_g_triceps_rope_t),
+    "calf_press" to ExerciseArt(R.drawable.ex_g_calf_press, R.drawable.ex_g_calf_press_t),
+    "hip_thrust" to ExerciseArt(R.drawable.ex_g_hip_thrust, R.drawable.ex_g_hip_thrust_t),
+    "lat_pulldown" to ExerciseArt(R.drawable.ex_g_lat_pulldown, R.drawable.ex_g_lat_pulldown_t),
+    "incline_press" to ExerciseArt(R.drawable.ex_g_incline_press, R.drawable.ex_g_incline_press_t),
+    "leg_extension" to ExerciseArt(R.drawable.ex_g_leg_extension, R.drawable.ex_g_leg_extension_t),
+    "reverse_fly" to ExerciseArt(R.drawable.ex_g_reverse_fly, R.drawable.ex_g_reverse_fly_t),
+    "biceps_curl" to ExerciseArt(R.drawable.ex_g_biceps_curl, R.drawable.ex_g_biceps_curl_t),
+    "dead_bug" to ExerciseArt(R.drawable.ex_g_dead_bug, R.drawable.ex_g_dead_bug_t),
+    "chest_row" to ExerciseArt(R.drawable.ex_g_chest_row, R.drawable.ex_g_chest_row_t),
+    "shoulder_press" to ExerciseArt(R.drawable.ex_g_shoulder_press, R.drawable.ex_g_shoulder_press_t),
+    "back_extension" to ExerciseArt(R.drawable.ex_g_back_extension, R.drawable.ex_g_back_extension_t),
+)
+
+private val soniaArt = mapOf(
+    "bike" to ExerciseArt(R.drawable.ex_s_bike, R.drawable.ex_s_bike_t),
+    "leg_press" to ExerciseArt(R.drawable.ex_s_leg_press, R.drawable.ex_s_leg_press_t),
+    "leg_curl" to ExerciseArt(R.drawable.ex_s_leg_curl, R.drawable.ex_s_leg_curl_t),
+    "abductors" to ExerciseArt(R.drawable.ex_s_abductors, R.drawable.ex_s_abductors_t),
+    "calf_press" to ExerciseArt(R.drawable.ex_s_calf_press, R.drawable.ex_s_calf_press_t),
+    "dead_bug" to ExerciseArt(R.drawable.ex_s_dead_bug, R.drawable.ex_s_dead_bug_t),
+    "glute_bridge" to ExerciseArt(R.drawable.ex_s_glute_bridge, R.drawable.ex_s_glute_bridge_t),
+    "leg_extension" to ExerciseArt(R.drawable.ex_s_leg_extension, R.drawable.ex_s_leg_extension_t),
+    "adductors" to ExerciseArt(R.drawable.ex_s_adductors, R.drawable.ex_s_adductors_t),
+    "step_up" to ExerciseArt(R.drawable.ex_s_step_up, R.drawable.ex_s_step_up_t),
+    "reverse_crunch" to ExerciseArt(R.drawable.ex_s_reverse_crunch, R.drawable.ex_s_reverse_crunch_t),
+    "breathing_reset" to ExerciseArt(R.drawable.ex_s_breathing_reset, R.drawable.ex_s_breathing_reset_t),
+    "chest_row" to ExerciseArt(R.drawable.ex_s_chest_row, R.drawable.ex_s_chest_row_t),
+    "hip_thrust" to ExerciseArt(R.drawable.ex_s_hip_thrust, R.drawable.ex_s_hip_thrust_t),
+    "chest_press" to ExerciseArt(R.drawable.ex_s_chest_press, R.drawable.ex_s_chest_press_t),
+)
+
+/**
+ * Illustration de l'exercice pour le profil actif : variante Sonia pour son
+ * espace, variante Gérard sinon ; repli sur la variante de l'autre profil
+ * quand une seule existe. Null si aucune carte du pack ne couvre l'exercice.
+ */
+@DrawableRes
+fun exerciseArtFor(exerciseId: String, profileId: String?, thumbnail: Boolean = false): Int? {
+    val art = if (profileId == "sonia") soniaArt[exerciseId] ?: gerardArt[exerciseId]
+    else gerardArt[exerciseId] ?: soniaArt[exerciseId]
+    return art?.let { if (thumbnail) it.thumb else it.full }
 }
 
 @DrawableRes
@@ -108,10 +162,17 @@ fun primaryDrawableFor(exerciseId: String, thumbnail: Boolean = false): Int = wh
 }
 
 @Composable
-fun PrimaryMediaImage(exerciseId: String, modifier: Modifier = Modifier, thumbnail: Boolean = false) {
+fun PrimaryMediaImage(
+    exerciseId: String,
+    modifier: Modifier = Modifier,
+    thumbnail: Boolean = false,
+    profileId: String? = null,
+) {
     val media = ExerciseMediaCatalog.forExercise(exerciseId)
+    val drawable = exerciseArtFor(exerciseId, profileId, thumbnail)
+        ?: primaryDrawableFor(exerciseId, thumbnail)
     Image(
-        painter = painterResource(primaryDrawableFor(exerciseId, thumbnail)),
+        painter = painterResource(drawable),
         contentDescription = media?.accessibilityDescription,
         modifier = modifier,
         contentScale = ContentScale.Crop,
@@ -199,7 +260,8 @@ enum class ExerciseMediaView { MOVEMENT, MACHINE, VIDEO, BOOK }
 
 @Composable
 fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -> Unit) {
-    if (ExerciseMediaCatalog.forExercise(exercise.id) == null) return
+    val profileId = if (isSonia) "sonia" else "gerard"
+    if (ExerciseMediaCatalog.forExercise(exercise.id) == null && exerciseArtFor(exercise.id, profileId) == null) return
     Card(
         onClick = onOpen,
         modifier = Modifier.fillMaxWidth(),
@@ -208,7 +270,7 @@ fun ExercisePreviewCard(exercise: ExerciseEntity, isSonia: Boolean, onOpen: () -
         elevation = CardDefaults.cardElevation(2.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryMediaImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f).clip(RoundedCornerShape(18.dp)), thumbnail = true)
+            PrimaryMediaImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f).clip(RoundedCornerShape(18.dp)), thumbnail = true, profileId = profileId)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(exercise.name, style = MaterialTheme.typography.titleLarge, color = DeepNavy)
@@ -238,12 +300,16 @@ fun ExerciseMediaScreen(
     onUserPhotoRemoved: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val media = ExerciseMediaCatalog.forExercise(exercise.id) ?: return
+    // Le catalogue est optionnel : les nouveaux exercices sans fiche média
+    // détaillée affichent quand même leur illustration et les consignes de
+    // la fiche technique (réglage, erreurs, alternative).
+    val media = ExerciseMediaCatalog.forExercise(exercise.id)
+    if (media == null && exerciseArtFor(exercise.id, profileId) == null) return
     val context = LocalContext.current
     var selectedView by remember(initialView) { mutableStateOf(initialView) }
     var fullScreen by remember { mutableStateOf(false) }
-    val machineAsset = media.assets.first { it.category == ExerciseMediaCategory.MACHINE_VISUAL }
-    val hasMachine = machineAsset.mediaType != ExerciseAssetType.PLACEHOLDER
+    val machineAsset = media?.assets?.firstOrNull { it.category == ExerciseMediaCategory.MACHINE_VISUAL }
+    val hasMachine = machineAsset?.let { it.mediaType != ExerciseAssetType.PLACEHOLDER } ?: true
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         runCatching {
@@ -270,7 +336,7 @@ fun ExerciseMediaScreen(
                 if (selectedView == ExerciseMediaView.MACHINE) {
                     MachineAssetImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f), userPhotoUri)
                 } else {
-                    PrimaryMediaImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f))
+                    PrimaryMediaImage(exercise.id, Modifier.fillMaxWidth().aspectRatio(3f / 2f), profileId = profileId)
                 }
             }
         }
@@ -306,10 +372,14 @@ fun ExerciseMediaScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     OutlinedButton(
                         onClick = { selectedView = ExerciseMediaView.VIDEO },
-                        enabled = media.videoReference != null,
+                        enabled = media?.videoReference != null,
                         modifier = Modifier.weight(1f),
-                    ) { Text(if (media.videoReference == null) "VIDÉO INDISP." else "VIDÉO") }
-                    OutlinedButton(onClick = { selectedView = ExerciseMediaView.BOOK }, modifier = Modifier.weight(1f)) { Text("LIVRE") }
+                    ) { Text(if (media?.videoReference == null) "VIDÉO INDISP." else "VIDÉO") }
+                    OutlinedButton(
+                        onClick = { selectedView = ExerciseMediaView.BOOK },
+                        enabled = media != null,
+                        modifier = Modifier.weight(1f),
+                    ) { Text("LIVRE") }
                 }
             }
         }
@@ -326,10 +396,13 @@ fun ExerciseMediaScreen(
                             PrimaryMediaImage(
                                 exercise.id,
                                 Modifier.fillMaxWidth().aspectRatio(3f / 2f).clickable { fullScreen = true },
+                                profileId = profileId,
                             )
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("RENDU ORIGINAL · HORS CONNEXION", style = MaterialTheme.typography.labelLarge, color = Copper)
-                                Text(media.assets.first { it.category == ExerciseMediaCategory.PRIMARY_VISUAL }.subtitle, color = SoftGray)
+                                Text("ILLUSTRATION ORIGINALE · HORS CONNEXION", style = MaterialTheme.typography.labelLarge, color = Copper)
+                                media?.assets?.firstOrNull { it.category == ExerciseMediaCategory.PRIMARY_VISUAL }?.let {
+                                    Text(it.subtitle, color = SoftGray)
+                                }
                                 Text("Touchez l’image pour l’afficher en plein écran.", style = MaterialTheme.typography.bodySmall, color = Sage)
                             }
                         }
@@ -337,11 +410,13 @@ fun ExerciseMediaScreen(
                 }
                 item {
                     PremiumSurfaceCard {
-                        ExerciseSection("Position de départ", media.guidedIllustration.startPosition, Copper)
-                        ExerciseSection("Trajectoire", media.guidedIllustration.trajectory, Navy)
-                        ExerciseSection("Appuis", media.guidedIllustration.supports, Sage)
-                        ExerciseSection("Amplitude conseillée", media.guidedIllustration.recommendedRange, Copper)
-                        ExerciseSection("Respiration", media.guidedIllustration.breathing, Navy)
+                        media?.guidedIllustration?.let { guide ->
+                            ExerciseSection("Position de départ", guide.startPosition, Copper)
+                            ExerciseSection("Trajectoire", guide.trajectory, Navy)
+                            ExerciseSection("Appuis", guide.supports, Sage)
+                            ExerciseSection("Amplitude conseillée", guide.recommendedRange, Copper)
+                            ExerciseSection("Respiration", guide.breathing, Navy)
+                        }
                         ExerciseSection("Réglage", exercise.machineSetup, Sage)
                         ExerciseSection("Erreurs à éviter", exercise.commonErrors, Copper)
                         ExerciseSection("Alternative", exercise.alternative, Sage)
@@ -359,7 +434,7 @@ fun ExerciseMediaScreen(
                                 userPhotoUri,
                             )
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(media.machine.genericName, style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
+                                Text(media?.machine?.genericName ?: "Machine de la salle", style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
                                 Text(
                                     when {
                                         userPhotoUri != null -> "PHOTO PERSONNELLE · PRIORITAIRE"
@@ -379,9 +454,9 @@ fun ExerciseMediaScreen(
                                         OutlinedButton(onClick = onUserPhotoRemoved, modifier = Modifier.fillMaxWidth()) { Text("SUPPRIMER LA PHOTO PERSONNELLE") }
                                     }
                                 }
-                                ExerciseSection("Repères de réglage", media.machine.adjustmentLandmarks, Sage)
-                                ExerciseSection("Variantes possibles", media.machine.possibleVariants, Copper)
-                                ExerciseSection("Source", machineAsset.sourceName ?: "Sans objet", Navy)
+                                ExerciseSection("Repères de réglage", media?.machine?.adjustmentLandmarks ?: exercise.machineSetup, Sage)
+                                media?.machine?.possibleVariants?.let { ExerciseSection("Variantes possibles", it, Copper) }
+                                machineAsset?.sourceName?.let { ExerciseSection("Source", it, Navy) }
                             }
                         }
                     }
@@ -400,7 +475,7 @@ fun ExerciseMediaScreen(
                 item {
                     PremiumSurfaceCard(tone = PremiumTone.SAGE) {
                         Text("FICHE ÉDITORIALE", style = MaterialTheme.typography.labelLarge, color = Sage)
-                        Text(media.bookLocator, style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
+                        Text(media?.bookLocator ?: "Fiche du livre", style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
                         Text("La fiche locale reprend les consignes du livre utiles pendant la séance.", color = SoftGray)
                         ExerciseSection("Réglage", exercise.machineSetup, Sage)
                         ExerciseSection("Erreurs à éviter", exercise.commonErrors, Copper)

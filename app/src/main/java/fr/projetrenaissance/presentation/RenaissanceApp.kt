@@ -775,7 +775,7 @@ private fun WorkoutScreen(
                 TextButton(onClick = { demoExpanded = !demoExpanded }) { Text(if (demoExpanded) "Masquer l’aperçu" else "Voir le mouvement") }
                 if (demoExpanded) {
                     Text("Visuel réaliste local · touchez pour ouvrir la fiche complète", style = MaterialTheme.typography.bodySmall, color = SoftGray)
-                    ExerciseMediaThumbnail(current.exercise.id) { onMedia(current.exercise.id, ExerciseMediaView.MOVEMENT) }
+                    ExerciseMediaThumbnail(current.exercise.id, profile.id) { onMedia(current.exercise.id, ExerciseMediaView.MOVEMENT) }
                     MachineAssetThumbnail(
                         current.exercise.id,
                         appState.preferences.machinePhotoUris[current.exercise.id],
