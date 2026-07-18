@@ -2,6 +2,7 @@ package fr.projetrenaissance.presentation
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -79,13 +80,16 @@ import fr.projetrenaissance.data.health.HealthConnectAvailability
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Person
 import fr.projetrenaissance.domain.SessionLength
 import fr.projetrenaissance.domain.LoadHistoryPoint
+import fr.projetrenaissance.domain.BiologicalSex
+import fr.projetrenaissance.domain.ProgramGoal
+import fr.projetrenaissance.domain.TrainingProfile
 import fr.projetrenaissance.domain.WorkoutCoach
 import fr.projetrenaissance.domain.WorkoutCoachContext
 import fr.projetrenaissance.domain.ExerciseMediaCatalog
@@ -123,10 +127,10 @@ private data class MainDestination(val route: String, val label: String, val ico
 
 private val mainDestinations = listOf(
     MainDestination(Routes.HOME, "Accueil", Icons.Filled.Home),
-    MainDestination(Routes.PROGRAM, "Programme", Icons.AutoMirrored.Filled.List),
-    MainDestination(Routes.TRACKING, "Suivi", Icons.Filled.Star),
-    MainDestination(Routes.NUTRITION, "Nutrition", Icons.Filled.Favorite),
-    MainDestination(Routes.PROFILE, "Profil", Icons.Filled.AccountCircle),
+    MainDestination(Routes.PROGRAM, "Programme", Icons.Filled.FitnessCenter),
+    MainDestination(Routes.TRACKING, "Suivi", Icons.Filled.Insights),
+    MainDestination(Routes.NUTRITION, "Nutrition", Icons.Filled.Restaurant),
+    MainDestination(Routes.PROFILE, "Profil", Icons.Filled.Person),
 )
 
 @Composable
@@ -354,7 +358,7 @@ private fun StartupHealthOnboarding(
 
 @Composable
 private fun ProfileCard(name: String, goal: String, detail: String, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Paper), border = BorderStroke(1.dp, WarmLine), elevation = CardDefaults.cardElevation(0.dp)) {
         Column(Modifier.padding(22.dp)) {
             Text(name, style = MaterialTheme.typography.headlineMedium, color = Navy, fontWeight = FontWeight.Bold)
             Text(goal, style = MaterialTheme.typography.titleMedium)
@@ -369,6 +373,15 @@ private fun ProfileCard(name: String, goal: String, detail: String, onClick: () 
 private fun HomeScreen(state: AppUiState, nav: NavHostController, onCheckIn: (Int, Int, Int, Int) -> Unit) {
     val profile = state.profile ?: return
     val next = state.templates.firstOrNull()
+    val readiness = state.dailyHealth.readiness
+    val readinessRange = readinessEstimateRange(readiness.score, readiness.confidence)
+    val readinessValue = when {
+        readiness.score == null -> "—"
+        readiness.confidence < 85 && readinessRange != null -> "${readinessRange.first}–${readinessRange.last}"
+        else -> "${readiness.score}"
+    }
+    val sessionsDone = state.dailyHealth.sessionsThisWeek.coerceAtMost(3)
+    val today = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)).uppercase(Locale.FRANCE)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -376,9 +389,9 @@ private fun HomeScreen(state: AppUiState, nav: NavHostController, onCheckIn: (In
     ) {
         item {
             EditorialPageHeader(
-                eyebrow = if (profile.id == "sonia") "Carnet de Sonia" else "Carnet de Gérard",
-                title = "Bonjour ${profile.displayName}",
-                subtitle = if (profile.id == "sonia") "Aujourd’hui, avancer avec douceur et précision." else "La régularité transforme chaque séance en progrès.",
+                eyebrow = today,
+                title = "Salut ${profile.displayName}",
+                subtitle = if (profile.id == "sonia") "Avancer avec douceur et précision." else "La régularité transforme chaque séance en progrès.",
                 trailing = {
                     Box(Modifier.size(50.dp).background(PaleCopper, CircleShape), contentAlignment = Alignment.Center) {
                         Text(profile.displayName.take(1), color = Copper, style = MaterialTheme.typography.titleLarge)
@@ -386,20 +399,25 @@ private fun HomeScreen(state: AppUiState, nav: NavHostController, onCheckIn: (In
                 },
             )
         }
-        item { ReadinessCard(state) }
-        item { DailyForm(profile.id == "sonia", state.latestCheckIn, onCheckIn) }
-        item { HealthDashboardCard(state) { nav.navigate(Routes.HEALTH) } }
+        // Héro : la séance du jour et son action principale, en tête.
         item {
             PremiumSurfaceCard(tone = PremiumTone.NAVY) {
-                Text("PROCHAIN CHAPITRE", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .65f))
-                Text(next?.title ?: "Programme prêt", style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                Text(next?.intent.orEmpty(), color = Color.White.copy(alpha = .78f))
+                Text("SÉANCE DU JOUR", style = MaterialTheme.typography.labelLarge, color = Color(0xFFF0997B))
+                Text(next?.title ?: "Programme prêt", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                Text(next?.intent.orEmpty(), color = OnNavy.copy(alpha = .72f))
                 Spacer(Modifier.height(14.dp))
                 Button(
                     onClick = { next?.let { nav.navigate(Routes.workout(it.id)) } },
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Copper),
-                ) { Text("COMMENCER") }
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Copper, contentColor = Color.White),
+                ) { Text("▶  DÉMARRER LA SÉANCE") }
+            }
+        }
+        // Tuiles de stats clés.
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PremiumMetricCard("Préparation", readinessValue, readinessReliabilityLabel(readiness.confidence), Copper, Modifier.weight(1f))
+                PremiumMetricCard("Semaine", "$sessionsDone / 3", "séances", Sage, Modifier.weight(1f))
             }
         }
         item {
@@ -408,19 +426,9 @@ private fun HomeScreen(state: AppUiState, nav: NavHostController, onCheckIn: (In
                 QuickAction("Bibliothèque", "Exercices et réglages", Modifier.weight(1f)) { nav.navigate(Routes.LIBRARY) }
             }
         }
-        item {
-            PremiumSurfaceCard(tone = PremiumTone.SAGE) {
-                Text("RYTHME DE LA SEMAINE", style = MaterialTheme.typography.labelLarge, color = Sage)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    Text("${state.dailyHealth.sessionsThisWeek.coerceAtMost(3)} / 3", style = MaterialTheme.typography.headlineMedium, color = DeepNavy)
-                    Text("séances", style = MaterialTheme.typography.titleMedium, color = Sage)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    repeat(3) { index -> Box(Modifier.weight(1f).height(7.dp).background(if (index < state.dailyHealth.sessionsThisWeek) Sage else Color.White.copy(.8f), RoundedCornerShape(50))) }
-                }
-                Text(if (state.dailyHealth.sessionsThisWeek == 0) "La première séance donnera le rythme." else "Chaque séance enregistrée nourrit ta progression.", color = SoftGray)
-            }
-        }
+        item { ReadinessCard(state) }
+        item { DailyForm(profile.id == "sonia", state.latestCheckIn, onCheckIn) }
+        item { HealthDashboardCard(state) { nav.navigate(Routes.HEALTH) } }
         if (profile.id == "sonia") item { SoniaSafetyCard() }
     }
 }
@@ -590,15 +598,52 @@ private fun WorkoutScreen(
     }.orEmpty()
     val previousSet = exerciseHistory.maxByOrNull { it.completedAt }
     val bestLoad = exerciseHistory.maxOfOrNull { it.loadKg }
+    // Morphologie : mesures réelles (balance Withings via Health Connect) en
+    // priorité — masse maigre, masse grasse, poids. Le poids cible du profil ne
+    // sert que de repli, signalé comme tel dans l'explication.
+    val preferredRecords = appState.healthRecords.filter { it.isPreferred }
+    val measuredLeanMass = preferredRecords.filter { it.recordType == "LEAN_BODY_MASS" && it.value != null }.maxByOrNull { it.startTime }?.value
+    val measuredBodyFat = preferredRecords.filter { it.recordType == "BODY_FAT" && it.value != null }.maxByOrNull { it.startTime }?.value
+    val measuredWeight = appState.dailyHealth.weight?.value
+    val trainingProfile = TrainingProfile(
+        sex = if (profile.id == "sonia") BiologicalSex.FEMALE else BiologicalSex.MALE,
+        ageYears = profile.age,
+        bodyweightKg = measuredWeight ?: parseBodyweight(profile.targetWeight),
+        leanMassKg = measuredLeanMass,
+        bodyFatPercent = measuredBodyFat,
+        weightIsMeasured = measuredWeight != null,
+        goal = if (profile.id == "sonia") ProgramGoal.TONE_MOBILITY else ProgramGoal.LEAN_MASS,
+    )
+    val allHistory = appState.setLogs.filter { !it.isTest }
+    val historyByExercise = allHistory.groupBy { it.exerciseId }
+        .mapValues { (_, logs) -> logs.map { LoadHistoryPoint(it.loadKg, it.rpe, it.completedAt, it.reps) } }
+    val personalIndex = WorkoutCoach.performanceIndex(trainingProfile, historyByExercise)
+    val programWeek = allHistory.minOfOrNull { it.completedAt }?.let { first ->
+        (((System.currentTimeMillis() - first) / (7L * 24 * 60 * 60 * 1000)).toInt() + 1).coerceIn(1, 12)
+    }
+    val targetRpe = current?.rpe?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() } ?: 7
     val loadRecommendation = current?.let { plan ->
-        WorkoutCoach.recommendLoad(
-            exerciseId = plan.exercise.id,
-            history = exerciseHistory.map { LoadHistoryPoint(it.loadKg, it.rpe, it.completedAt) },
-            context = coachContext,
-        )
+        if (exerciseHistory.isEmpty()) {
+            // Aucun historique sur cet exercice : référence statistique recalée
+            // par l'index personnel et la forme du jour (modifiable ci-dessous).
+            WorkoutCoach.recommendStartingLoad(plan.exercise.id, trainingProfile, coachContext, personalIndex, programWeek)
+        } else {
+            WorkoutCoach.recommendLoad(
+                exerciseId = plan.exercise.id,
+                history = exerciseHistory.map { LoadHistoryPoint(it.loadKg, it.rpe, it.completedAt, it.reps) },
+                context = coachContext,
+                targetRpe = targetRpe,
+                goal = trainingProfile.goal,
+            )
+        }
     }
     val repetitionRecommendation = current?.let {
-        WorkoutCoach.recommendRepetitions(it.reps, selectedLength)
+        WorkoutCoach.recommendRepetitions(
+            it.reps,
+            selectedLength,
+            appState.dailyHealth.readiness.score,
+            lastAchievedReps = previousSet?.reps,
+        )
     }
     var reps by remember(current?.exercise?.id, selectedLength, workout.restartVersion) {
         mutableIntStateOf(repetitionRecommendation?.value ?: 10)
@@ -725,6 +770,13 @@ private fun WorkoutScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = if (completedCount >= current.sets) Sage else Copper,
                     )
+                    if (completedCount == 0) {
+                        Text(
+                            "Réglez la machine, effectuez votre série avec les valeurs proposées (modifiables), puis validez : le chrono de repos se lance automatiquement.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SoftGray,
+                        )
+                    }
                     loadRecommendation?.let { recommendation ->
                         Text(
                             recommendation.valueKg?.let { "Charge conseillée : ${if (it % 1.0 == 0.0) it.toInt() else it} kg" }
@@ -807,7 +859,7 @@ private fun WorkoutScreen(
                 }
             }
             item {
-                Button(onClick = viewModel::nextExercise, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Sage)) {
+                Button(onClick = viewModel::nextExercise, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Sage, contentColor = Color.White)) {
                     Text("EXERCICE SUIVANT")
                 }
             }
@@ -872,13 +924,13 @@ private fun TimerScreen(viewModel: AppViewModel) {
 private fun CompactTimer(seconds: Int, adjust: (Int) -> Unit, stop: () -> Unit) {
     Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Copper), elevation = CardDefaults.cardElevation(2.dp)) {
         Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { adjust(-15) }) { Text("−15") }
+            OutlinedButton(onClick = { adjust(-15) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = .7f))) { Text("−15") }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("REPOS", color = Color.White.copy(alpha = .8f), fontWeight = FontWeight.Bold)
+                Text("REPOS", color = Color.White.copy(alpha = .85f), fontWeight = FontWeight.Bold)
                 Text(formatSeconds(seconds), color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
                 TextButton(onClick = stop) { Text("Passer", color = Color.White) }
             }
-            OutlinedButton(onClick = { adjust(15) }) { Text("+15") }
+            OutlinedButton(onClick = { adjust(15) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = .7f))) { Text("+15") }
         }
     }
 }
@@ -1029,7 +1081,7 @@ private fun NutritionScreen(profile: ProfileEntity?) {
             }
         } ?: run {
             items(visible) { recipe ->
-                Card(onClick = { selected = recipe }, shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Paper)) {
+                Card(onClick = { selected = recipe }, shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Paper), border = BorderStroke(1.dp, WarmLine), elevation = CardDefaults.cardElevation(0.dp)) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         RecipeIllustration(recipe.id, Modifier.fillMaxWidth().height(125.dp))
                         Text(recipe.title, style = MaterialTheme.typography.titleLarge, color = DeepNavy)
@@ -1541,7 +1593,7 @@ private fun PremiumCard(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun QuickAction(title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Paper), elevation = CardDefaults.cardElevation(1.dp)) {
+    Card(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Paper), border = BorderStroke(1.dp, WarmLine), elevation = CardDefaults.cardElevation(0.dp)) {
         Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.size(34.dp).background(PaleCopper, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
                 Text(title.take(1), color = Copper, fontWeight = FontWeight.Black)
@@ -1565,3 +1617,8 @@ private fun SessionLength.label(): String = when (this) {
 }
 
 private fun formatSeconds(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
+
+// Poids de repli quand aucune mesure de montre/pesée n'est disponible : on
+// lit le premier nombre du poids-cible du profil (ex. « 69–70 kg » → 69).
+private fun parseBodyweight(targetWeight: String): Double? =
+    Regex("""\d+([.,]\d+)?""").find(targetWeight)?.value?.replace(',', '.')?.toDoubleOrNull()

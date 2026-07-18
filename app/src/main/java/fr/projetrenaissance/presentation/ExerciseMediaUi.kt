@@ -25,12 +25,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -140,12 +144,40 @@ fun MachineAssetImage(
             contentScale = ContentScale.Crop,
         )
     } else {
-        Image(
-            painter = painterResource(primaryDrawableFor(exerciseId)),
-            contentDescription = media?.let { "Vue réaliste originale de ${it.machine.genericName}" },
-            modifier = modifier,
-            contentScale = ContentScale.Crop,
-        )
+        // Pas de doublon du visuel « mouvement » : tant qu'aucune photo
+        // personnelle n'est ajoutée, on affiche une invite dédiée. La vue
+        // machine sert à photographier l'appareil réel de sa salle.
+        MachinePhotoPlaceholder(modifier)
+    }
+}
+
+@Composable
+private fun MachinePhotoPlaceholder(modifier: Modifier = Modifier) {
+    Box(modifier.background(SoftSage), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(24.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AddAPhoto,
+                contentDescription = null,
+                tint = Sage,
+                modifier = Modifier.size(44.dp),
+            )
+            Text(
+                "Photographiez la machine de votre salle",
+                style = MaterialTheme.typography.titleMedium,
+                color = DeepNavy,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "Votre photo remplacera cet emplacement et vous aidera à retrouver le bon appareil.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftGray,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -331,13 +363,13 @@ fun ExerciseMediaScreen(
                                 Text(
                                     when {
                                         userPhotoUri != null -> "PHOTO PERSONNELLE · PRIORITAIRE"
-                                        hasMachine -> "RENDU GÉNÉRIQUE ORIGINAL · PHOTO PERSONNELLE POSSIBLE"
+                                        hasMachine -> "PHOTO DE LA MACHINE À AJOUTER"
                                         else -> "AUCUNE MACHINE REQUISE · EXERCICE AU SOL"
                                     },
                                     style = MaterialTheme.typography.labelLarge,
                                     color = if (userPhotoUri != null) Sage else Copper,
                                 )
-                                Text(if (hasMachine) "Vue non liée à une marque ni à un modèle constructeur exact." else "Utilise un tapis stable et un espace dégagé.", color = SoftGray)
+                                Text(if (hasMachine) "Ajoutez la photo de l’appareil de votre salle pour le retrouver facilement d’une séance à l’autre." else "Utilise un tapis stable et un espace dégagé.", color = SoftGray)
                                 if (hasMachine) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                         OutlinedButton(onClick = { camera.launch(null) }, modifier = Modifier.weight(1f)) { Text("PRENDRE") }

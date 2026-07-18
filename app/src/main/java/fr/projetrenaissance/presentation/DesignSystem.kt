@@ -1,5 +1,6 @@
 package fr.projetrenaissance.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,23 +55,32 @@ fun PremiumSurfaceCard(
         PremiumTone.COPPER -> PaleCopper
         PremiumTone.NAVY -> DeepNavy
     }
+    // Couleur de texte par défaut associée au fond : sur le fond sombre NAVY,
+    // les textes sans couleur explicite doivent rester lisibles (clair sur
+    // sombre) plutôt que de retomber sur onSurface (sombre sur sombre).
+    val contentColor = if (tone == PremiumTone.NAVY) OnNavy else Ink
+    val border = if (tone == PremiumTone.PAPER) BorderStroke(1.dp, WarmLine) else null
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = container),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = contentColor),
+        border = border,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (tone == PremiumTone.NAVY) 3.dp else 0.dp),
     ) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content) }
 }
 
 @Composable
 fun EditorialPageHeader(eyebrow: String, title: String, subtitle: String, trailing: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(eyebrow.uppercase(Locale.getDefault()), style = MaterialTheme.typography.labelLarge, color = Copper)
-            Text(title, style = MaterialTheme.typography.headlineLarge, color = DeepNavy)
-            Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = SoftGray)
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(width = 26.dp, height = 5.dp).background(Copper, RoundedCornerShape(50)))
+                Text(eyebrow.uppercase(Locale.getDefault()), style = MaterialTheme.typography.labelLarge, color = Copper)
+            }
+            trailing?.invoke()
         }
-        trailing?.let { Spacer(Modifier.size(12.dp)); it() }
+        Text(title, style = MaterialTheme.typography.displaySmall, color = DeepNavy)
+        Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = SoftGray)
     }
 }
 
@@ -124,10 +134,13 @@ private fun SmallBadge(label: String, background: Color, foreground: Color) {
 
 @Composable
 fun PremiumMetricCard(label: String, value: String, caption: String, accent: Color = Copper, modifier: Modifier = Modifier) {
-    Card(modifier, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Paper), elevation = CardDefaults.cardElevation(1.dp)) {
-        Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(label.uppercase(Locale.getDefault()), style = MaterialTheme.typography.labelLarge, color = accent)
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = DeepNavy)
+    Card(modifier, shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Paper), border = BorderStroke(1.dp, WarmLine), elevation = CardDefaults.cardElevation(0.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(Modifier.size(9.dp).background(accent, CircleShape))
+                Text(label.uppercase(Locale.getDefault()), style = MaterialTheme.typography.labelLarge, color = accent)
+            }
+            Text(value, style = MaterialTheme.typography.headlineLarge, color = DeepNavy)
             Text(caption, style = MaterialTheme.typography.bodySmall, color = SoftGray)
         }
     }
