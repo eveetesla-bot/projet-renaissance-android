@@ -531,11 +531,11 @@ private fun ProgramScreen(templates: List<WorkoutTemplateEntity>, setLogs: List<
         setLogs.filter { !it.isTest }.map { ProgramSetRecord(it.templateId, it.completedAt) },
     )
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { EditorialPageHeader("Parcours personnel", "Programme 12 semaines", "Quatre phases pour ancrer, construire, progresser puis consolider.") }
+        item { EditorialPageHeader("Parcours personnel", "Programme 12 semaines", "Trois phases de quatre semaines : ancrer, construire, puis intensifier et consolider.") }
         templates.groupBy { it.weekFrom to it.weekTo }.forEach { (weeks, sessions) ->
             item {
                 val title = sessions.firstOrNull()?.title?.substringBefore(" ·") ?: "Phase"
-                val tone = when (weeks.first) { 1 -> PremiumTone.SAGE; 4 -> PremiumTone.COPPER; 7 -> PremiumTone.PAPER; else -> PremiumTone.NAVY }
+                val tone = when (weeks.first) { 1 -> PremiumTone.SAGE; 5 -> PremiumTone.COPPER; else -> PremiumTone.NAVY }
                 val done = completed.count { slot -> sessions.any { it.id == slot.templateId } }
                 val total = sessions.size * (weeks.second - weeks.first + 1)
                 PremiumSurfaceCard(tone = tone) {
@@ -566,9 +566,8 @@ private fun ProgramScreen(templates: List<WorkoutTemplateEntity>, setLogs: List<
                     CoachTipCard(
                         when (weeks.first) {
                             1 -> "Commence par rendre les réglages et les trajectoires reproductibles."
-                            4 -> "Ajoute du volume seulement si la technique reste stable."
-                            7 -> "Progresse avec précision, sans accélérer le tempo."
-                            else -> "Consolide les repères avant le bilan des douze semaines."
+                            5 -> "Ajoute du volume seulement si la technique reste stable."
+                            else -> "Progresse avec précision, puis allège en semaine 12 pour le bilan."
                         },
                         "Conseil du guide",
                     )

@@ -28,6 +28,11 @@ class RenaissanceRepository(private val database: AppDatabase) {
             // réinstallation. Les données utilisateur vivent dans d'autres tables.
             dao.insertProfiles(DemoData.profiles)
             dao.insertExercises(DemoData.exercises)
+            // Les gabarits sont entièrement réécrits (et les anciens supprimés)
+            // pour que les installations existantes suivent la structure de
+            // phases du livre. Les journaux d'entraînement ne sont pas touchés.
+            dao.deleteEveryWorkoutExercise()
+            dao.deleteEveryWorkoutTemplate()
             dao.insertTemplates(DemoData.templates)
             dao.insertWorkoutExercises(DemoData.workoutExercises)
         }
@@ -339,25 +344,44 @@ private object DemoData {
         ExerciseEntity("breathing_reset", "Respiration et bassin", "Diaphragme, plancher pelvien, sangle profonde", "Assise ou allongée, expiration longue puis rétroversion douce du bassin.", "Respirer vite, crisper les épaules.", "Assise calme sur banc"),
     )
 
+    // Édition premium du livre : trois phases de quatre semaines, chacune avec
+    // ses propres tableaux de séances (plus aucune dérivation mécanique).
     private val phases = listOf(
-        Triple(1..3, "Ancrer", "Installer les réglages et une technique reproductible."),
-        Triple(4..6, "Construire", "Ajouter du volume sans précipiter."),
-        Triple(7..9, "Progresser", "Faire monter les repères avec précision."),
-        Triple(10..12, "Consolider", "Stabiliser les acquis et préparer le bilan."),
+        Triple(1..4, "Ancrer", "Installer les réglages et sortir de chaque séance avec une répétition propre en réserve."),
+        Triple(5..8, "Construire", "Ajouter du volume utile sans précipiter."),
+        Triple(9..12, "Intensifier", "Double progression, petits records de répétitions, puis bilan du cycle."),
+    )
+
+    private val gerardTitles = listOf(
+        mapOf("A" to "Ancrer les bases", "B" to "Construire le dos et l’arrière du corps", "C" to "Accumuler du travail utile"),
+        mapOf("A" to "Ajouter du volume", "B" to "Épaissir sans précipiter", "C" to "Tolérer davantage de travail"),
+        mapOf("A" to "Intensifier avec précision", "B" to "Faire monter les repères", "C" to "Consolider le cycle"),
+    )
+    private val soniaTitles = mapOf(
+        "A" to "Cuisses et stabilité",
+        "B" to "Fessiers et mobilité",
+        "C" to "Endurance musculaire",
     )
 
     val templates = buildList {
-        phases.forEachIndexed { phaseIndex, (weeks, phase, intent) ->
+        phases.forEachIndexed { phaseIndex, (weeks, _, intent) ->
             listOf("A", "B", "C").forEach { code ->
-                add(WorkoutTemplateEntity("gerard_${phaseIndex}_$code", "gerard", weeks.first, weeks.last, code, "$phase · Séance $code", intent))
-                add(WorkoutTemplateEntity("sonia_${phaseIndex}_$code", "sonia", weeks.first, weeks.last, code, "$phase · Séance $code", if (phaseIndex == 0) "Bas du corps, épaule droite neutre et détendue." else intent))
+                add(WorkoutTemplateEntity("gerard_${phaseIndex}_$code", "gerard", weeks.first, weeks.last, code, "${gerardTitles[phaseIndex].getValue(code)} · Séance $code", intent))
+                add(
+                    WorkoutTemplateEntity(
+                        "sonia_${phaseIndex}_$code", "sonia", weeks.first, weeks.last, code,
+                        "${soniaTitles.getValue(code)} · Séance $code",
+                        "Bas du corps, épaule droite neutre ; le haut du corps n’apparaît qu’après validation médicale.",
+                    ),
+                )
             }
         }
     }
 
     private data class Prescription(val exercise: String, val sets: Int, val reps: String, val rest: Int, val tempo: String, val rpe: String)
 
-    private val gerardA = listOf(
+    // Gérard — semaines 1 à 4 : « Ancrer les bases ».
+    private val gerardA1 = listOf(
         Prescription("leg_press", 3, "8–10", 120, "3–1–1", "6–7"),
         Prescription("chest_press", 3, "8–10", 120, "3–0–1", "6–7"),
         Prescription("seated_row", 3, "10–12", 120, "2–1–2", "7"),
@@ -366,7 +390,7 @@ private object DemoData {
         Prescription("triceps_rope", 2, "10–15", 75, "2–1–2", "7"),
         Prescription("calf_press", 2, "12–15", 60, "2–1–2", "7"),
     )
-    private val gerardB = listOf(
+    private val gerardB1 = listOf(
         Prescription("hip_thrust", 3, "8–12", 120, "2–1–1", "6–7"),
         Prescription("lat_pulldown", 3, "8–12", 120, "2–1–2", "7"),
         Prescription("incline_press", 3, "8–12", 120, "3–0–1", "7"),
@@ -375,7 +399,7 @@ private object DemoData {
         Prescription("biceps_curl", 3, "10–12", 75, "2–1–2", "7"),
         Prescription("dead_bug", 2, "6/côté", 60, "lent", "6"),
     )
-    private val gerardC = listOf(
+    private val gerardC1 = listOf(
         Prescription("leg_press", 3, "10–12", 120, "3–1–1", "7"),
         Prescription("chest_row", 3, "10–12", 120, "2–1–2", "7"),
         Prescription("chest_press", 3, "10–12", 120, "3–0–1", "7"),
@@ -385,10 +409,76 @@ private object DemoData {
         Prescription("triceps_rope", 2, "12", 75, "2–1–2", "7"),
         Prescription("back_extension", 2, "10–12", 75, "2–1–2", "6"),
     )
+
+    // Gérard — semaines 5 à 8 : « Ajouter du volume ».
+    private val gerardA2 = listOf(
+        Prescription("leg_press", 4, "8–12", 150, "3–1–1", "7–8"),
+        Prescription("chest_press", 4, "8–12", 120, "3–0–1", "7–8"),
+        Prescription("seated_row", 4, "8–12", 120, "2–1–2", "7–8"),
+        Prescription("leg_curl", 3, "10–15", 90, "3–1–1", "8"),
+        Prescription("lateral_raise", 3, "12–18", 75, "2–1–2", "8"),
+        Prescription("triceps_rope", 3, "10–15", 75, "2–1–2", "8"),
+        Prescription("calf_press", 3, "12–18", 60, "2–1–2", "8"),
+    )
+    private val gerardB2 = listOf(
+        Prescription("hip_thrust", 4, "8–12", 120, "2–1–1", "7–8"),
+        Prescription("lat_pulldown", 4, "8–12", 120, "2–1–2", "8"),
+        Prescription("incline_press", 3, "8–12", 120, "3–0–1", "8"),
+        Prescription("leg_extension", 3, "10–15", 90, "2–1–2", "8"),
+        Prescription("reverse_fly", 3, "12–18", 75, "2–1–2", "8"),
+        Prescription("biceps_curl", 3, "8–12", 90, "2–1–2", "8"),
+        Prescription("dead_bug", 3, "6/côté", 60, "lent", "7"),
+    )
+    private val gerardC2 = listOf(
+        Prescription("leg_press", 4, "10–15", 120, "3–1–1", "8"),
+        Prescription("chest_row", 4, "10–15", 120, "2–1–2", "8"),
+        Prescription("chest_press", 3, "10–15", 120, "3–0–1", "8"),
+        Prescription("leg_curl", 3, "12–15", 90, "3–1–1", "8"),
+        Prescription("shoulder_press", 3, "8–12", 120, "3–0–1", "7–8"),
+        Prescription("biceps_curl", 3, "10–15", 75, "2–1–2", "8"),
+        Prescription("triceps_rope", 3, "10–15", 75, "2–1–2", "8"),
+        Prescription("back_extension", 3, "10–15", 75, "2–1–2", "7"),
+    )
+
+    // Gérard — semaines 9 à 12 : « Intensifier avec précision ».
+    private val gerardA3 = listOf(
+        Prescription("leg_press", 4, "6–10", 180, "3–1–1", "8–9"),
+        Prescription("chest_press", 4, "6–10", 150, "3–0–1", "8–9"),
+        Prescription("seated_row", 4, "8–12", 120, "2–1–2", "8–9"),
+        Prescription("leg_curl", 3, "8–12", 90, "3–1–1", "8"),
+        Prescription("lateral_raise", 3, "12–18", 75, "2–1–2", "8"),
+        Prescription("triceps_rope", 3, "8–12", 90, "2–1–2", "8"),
+        Prescription("calf_press", 3, "10–15", 75, "2–1–2", "8"),
+    )
+    private val gerardB3 = listOf(
+        Prescription("hip_thrust", 4, "6–10", 150, "2–1–1", "8–9"),
+        Prescription("lat_pulldown", 4, "6–10", 120, "2–1–2", "8–9"),
+        Prescription("incline_press", 4, "8–12", 120, "3–0–1", "8"),
+        Prescription("leg_extension", 3, "10–15", 90, "2–1–2", "8"),
+        Prescription("reverse_fly", 3, "12–18", 75, "2–1–2", "8"),
+        Prescription("biceps_curl", 3, "8–12", 90, "2–1–2", "8–9"),
+        Prescription("dead_bug", 3, "8/côté", 60, "lent", "7"),
+    )
+    private val gerardC3 = listOf(
+        Prescription("leg_press", 3, "10–15", 120, "3–1–1", "8"),
+        Prescription("chest_row", 3, "8–12", 120, "2–1–2", "8"),
+        Prescription("chest_press", 3, "8–12", 120, "3–0–1", "8"),
+        Prescription("leg_curl", 3, "10–15", 90, "3–1–1", "8"),
+        Prescription("shoulder_press", 3, "8–12", 120, "3–0–1", "8"),
+        Prescription("biceps_curl", 2, "10–15", 75, "2–1–2", "8"),
+        Prescription("triceps_rope", 2, "10–15", 75, "2–1–2", "8"),
+        Prescription("back_extension", 2, "10–15", 75, "2–1–2", "7"),
+    )
+
+    // Sonia — mêmes séances toutes phases (progression par répétitions).
+    // Les mouvements du haut du corps (rowing appuyé, chest press neutre)
+    // portent requiresClearance : ils ne sont proposés qu'après validation
+    // médicale, avec un RPE volontairement bas (4–6), conformément au livre.
     private val soniaA = listOf(
         Prescription("bike", 1, "6 min", 0, "souple", "4"),
         Prescription("leg_press", 3, "10–12", 120, "3–1–1", "6–7"),
         Prescription("leg_curl", 3, "10–15", 90, "3–1–1", "7"),
+        Prescription("chest_row", 2, "12–15", 120, "2–1–2", "4–6"),
         Prescription("abductors", 3, "12–18", 75, "2–1–2", "7"),
         Prescription("calf_press", 3, "12–18", 60, "2–1–2", "7"),
         Prescription("dead_bug", 2, "6/côté", 60, "lent", "5–6"),
@@ -397,6 +487,7 @@ private object DemoData {
         Prescription("bike", 1, "6 min", 0, "souple", "4"),
         Prescription("glute_bridge", 3, "10–15", 90, "2–2–1", "6–7"),
         Prescription("leg_extension", 3, "10–15", 90, "2–1–2", "7"),
+        Prescription("chest_press", 2, "12–15", 120, "3–0–1", "4–6"),
         Prescription("adductors", 2, "12–18", 75, "2–1–2", "7"),
         Prescription("step_up", 2, "8/côté", 90, "2–1–2", "6"),
         Prescription("reverse_crunch", 2, "8–12", 60, "lent", "6"),
@@ -410,26 +501,27 @@ private object DemoData {
         Prescription("breathing_reset", 3, "5 cycles", 45, "lent", "3"),
     )
 
+    private val gerardPlans = listOf(
+        mapOf("A" to gerardA1, "B" to gerardB1, "C" to gerardC1),
+        mapOf("A" to gerardA2, "B" to gerardB2, "C" to gerardC2),
+        mapOf("A" to gerardA3, "B" to gerardB3, "C" to gerardC3),
+    )
+    private val soniaPlans = mapOf("A" to soniaA, "B" to soniaB, "C" to soniaC)
+
     val workoutExercises = templates.flatMap { template ->
-        val plan = when (template.profileId to template.code) {
-            "gerard" to "A" -> gerardA
-            "gerard" to "B" -> gerardB
-            "gerard" to "C" -> gerardC
-            "sonia" to "A" -> soniaA
-            "sonia" to "B" -> soniaB
-            else -> soniaC
-        }
-        val volumeBonus = if (template.weekFrom >= 4) 1 else 0
+        val phaseIndex = template.id.split("_")[1].toInt()
+        val plan = if (template.profileId == "gerard") gerardPlans[phaseIndex].getValue(template.code)
+        else soniaPlans.getValue(template.code)
         plan.mapIndexed { index, item ->
             WorkoutExerciseEntity(
                 templateId = template.id,
                 position = index + 1,
                 exerciseId = item.exercise,
-                sets = if (item.sets == 1) 1 else item.sets + volumeBonus,
+                sets = item.sets,
                 reps = item.reps,
                 restSeconds = item.rest,
                 tempo = item.tempo,
-                rpe = if (template.weekFrom >= 7 && item.rpe != "4") "8" else item.rpe,
+                rpe = item.rpe,
             )
         }
     }
