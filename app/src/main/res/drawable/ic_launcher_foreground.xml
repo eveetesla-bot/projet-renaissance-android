@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Logo Projet Renaissance : soleil levant (renaissance) au-dessus d'une barre
+  d'haltère (musculation), dans l'identité orange énergie / anthracite.
+  Dessin limité à la zone sûre (66×66 au centre du canevas 108×108).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Soleil levant -->
+    <path
+        android:fillColor="#E0561B"
+        android:pathData="M 37,52 A 17,17 0 0 1 71,52 Z" />
+
+    <!-- Rayons -->
+    <path
+        android:strokeColor="#E0561B"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M 54,24 L 54,30" />
+    <path
+        android:strokeColor="#E0561B"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M 35,32 L 39.5,36.5" />
+    <path
+        android:strokeColor="#E0561B"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M 73,32 L 68.5,36.5" />
+
+    <!-- Barre d'haltère -->
+    <path
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="5.5"
+        android:strokeLineCap="round"
+        android:pathData="M 36,65 L 72,65" />
+    <path
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M 31,56.5 L 31,73.5" />
+    <path
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M 77,56.5 L 77,73.5" />
+    <path
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M 23.5,60 L 23.5,70" />
+    <path
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M 84.5,60 L 84.5,70" />
+</vector>
