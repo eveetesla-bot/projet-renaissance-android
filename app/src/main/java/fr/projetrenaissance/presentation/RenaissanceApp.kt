@@ -401,16 +401,28 @@ private fun HomeScreen(state: AppUiState, nav: NavHostController, onCheckIn: (In
         }
         // Héro : la séance du jour et son action principale, en tête.
         item {
+            val startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val doneToday = state.setLogs.any { !it.isTest && it.completedAt >= startOfDay }
             PremiumSurfaceCard(tone = PremiumTone.NAVY) {
                 Text("SÉANCE DU JOUR", style = MaterialTheme.typography.labelLarge, color = Color(0xFFF0997B))
                 Text(next?.title ?: "Programme prêt", style = MaterialTheme.typography.headlineMedium, color = Color.White)
                 Text(next?.intent.orEmpty(), color = OnNavy.copy(alpha = .72f))
+                if (doneToday) {
+                    Text(
+                        "✓ Séance enregistrée aujourd’hui — bien joué !",
+                        color = Color(0xFF9FE1CB),
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 Spacer(Modifier.height(14.dp))
                 Button(
                     onClick = { next?.let { nav.navigate(Routes.workout(it.id)) } },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Copper, contentColor = Color.White),
-                ) { Text("▶  DÉMARRER LA SÉANCE") }
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (doneToday) Sage else Copper,
+                        contentColor = Color.White,
+                    ),
+                ) { Text(if (doneToday) "REVOIR OU CONTINUER LA SÉANCE" else "▶  DÉMARRER LA SÉANCE") }
             }
         }
         // Tuiles de stats clés.
@@ -657,11 +669,14 @@ private fun WorkoutScreen(
     var detailsExpanded by remember(current?.exercise?.id, workout.restartVersion) { mutableStateOf(false) }
     var demoExpanded by remember(current?.exercise?.id, workout.restartVersion) { mutableStateOf(true) }
 
+    val totalCompletedSets = workout.completedSets.values.sum()
     LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         stickyHeader {
             Column(Modifier.fillMaxWidth().background(WarmBackground).padding(bottom = 8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onClose) { Text("← Quitter") }
+                    TextButton(onClick = onClose) {
+                        Text(if (totalCompletedSets > 0 && !workout.sessionCompleted) "← Pause" else "← Quitter")
+                    }
                     SourceBadge("Séance ${selectedLength.label()}")
                 }
                 Text("PROGRESSION", style = MaterialTheme.typography.labelLarge, color = Copper)
@@ -671,9 +686,38 @@ private fun WorkoutScreen(
                     color = Copper,
                     trackColor = WarmLine,
                 )
-                Text("Mouvement ${workout.currentExerciseIndex + 1} sur ${workout.exercises.size.coerceAtLeast(1)}", style = MaterialTheme.typography.bodySmall, color = SoftGray)
+                Text(
+                    if (workout.sessionCompleted) "Séance terminée"
+                    else "Mouvement ${workout.currentExerciseIndex + 1} sur ${workout.exercises.size.coerceAtLeast(1)} · quitter met simplement en pause, la reprise est possible toute la journée",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SoftGray,
+                )
             }
         }
+        if (workout.sessionCompleted) {
+            item {
+                PremiumSurfaceCard(tone = PremiumTone.NAVY) {
+                    Text("SÉANCE TERMINÉE", style = MaterialTheme.typography.labelLarge, color = Color(0xFFF0997B))
+                    Text("Bien joué ${profile.displayName} !", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                    Text(
+                        "$totalCompletedSets série(s) enregistrée(s) · ${workout.completedSets.size} exercice(s) travaillé(s) · ${sessionDurationLabel(workout.startedAtMillis)}",
+                        color = OnNavy.copy(alpha = .78f),
+                    )
+                    Text(
+                        "Les charges et répétitions validées nourrissent le coach : la prochaine séance s’adaptera à ce que vous avez réellement fait.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnNavy.copy(alpha = .6f),
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = onClose,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Copper, contentColor = Color.White),
+                    ) { Text("RETOUR À L'ACCUEIL") }
+                }
+            }
+            item { CoachTipCard("Hydratation, étirements doux et un vrai repas dans les deux heures : la progression se construit aussi après la séance.", "Après l’effort") }
+        } else {
         item {
             PremiumSurfaceCard(tone = PremiumTone.SAGE) {
                 Text("COACH PERSONNEL", style = MaterialTheme.typography.labelLarge, color = Sage, fontWeight = FontWeight.Bold)
@@ -859,10 +903,25 @@ private fun WorkoutScreen(
                 }
             }
             item {
-                Button(onClick = viewModel::nextExercise, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Sage, contentColor = Color.White)) {
-                    Text("EXERCICE SUIVANT")
+                val isLastExercise = workout.currentExerciseIndex >= workout.exercises.lastIndex
+                if (isLastExercise) {
+                    Button(
+                        onClick = viewModel::finishWorkout,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Copper, contentColor = Color.White),
+                    ) { Text("TERMINER LA SÉANCE ✓") }
+                } else {
+                    Button(onClick = viewModel::nextExercise, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Sage, contentColor = Color.White)) {
+                        Text("EXERCICE SUIVANT  →")
+                    }
+                    if (totalCompletedSets > 0) {
+                        TextButton(onClick = viewModel::finishWorkout, modifier = Modifier.fillMaxWidth()) {
+                            Text("Terminer la séance maintenant")
+                        }
+                    }
                 }
             }
+        }
         }
     }
 }
@@ -1617,6 +1676,12 @@ private fun SessionLength.label(): String = when (this) {
 }
 
 private fun formatSeconds(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
+
+private fun sessionDurationLabel(startedAtMillis: Long): String {
+    if (startedAtMillis <= 0L) return "durée inconnue"
+    val minutes = ((System.currentTimeMillis() - startedAtMillis) / 60_000L).coerceAtLeast(1)
+    return "$minutes min"
+}
 
 // Poids de repli quand aucune mesure de montre/pesée n'est disponible : on
 // lit le premier nombre du poids-cible du profil (ex. « 69–70 kg » → 69).

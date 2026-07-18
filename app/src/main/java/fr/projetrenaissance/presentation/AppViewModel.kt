@@ -72,6 +72,7 @@ data class ActiveWorkoutState(
     val note: String = "",
     val restartMessage: String? = null,
     val resetInProgress: Boolean = false,
+    val sessionCompleted: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -383,6 +384,24 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         persistWorkoutSession(updated)
     }
 
+    /**
+     * Clôture explicite de la séance du jour : le chrono est arrêté et la
+     * session passe au statut COMPLETED (elle ne sera plus reprise ; un nouveau
+     * passage sur la même séance repartira proprement).
+     */
+    fun finishWorkout() {
+        timerJob?.cancel()
+        timerEndsAt = 0L
+        val updated = _workout.value.copy(
+            timerSeconds = 0,
+            timerRunning = false,
+            timerEndsAtMillis = 0L,
+            sessionCompleted = true,
+        )
+        _workout.value = updated
+        persistWorkoutSession(updated)
+    }
+
     fun restartWorkout() {
         val current = _workout.value
         val profileId = uiState.value.profile?.id ?: return
@@ -535,7 +554,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         note = note,
         painReported = painReported,
         timerEndsAt = if (timerRunning) timerEndsAtMillis else 0L,
-        status = "ACTIVE",
+        status = if (sessionCompleted) "COMPLETED" else "ACTIVE",
     )
 
     companion object {
