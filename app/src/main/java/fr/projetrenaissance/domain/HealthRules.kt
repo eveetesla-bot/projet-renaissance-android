@@ -117,15 +117,19 @@ object HealthDeduplication {
     private fun qualityScore(sample: HealthSample, priority: List<HealthSourceCategory>): Int {
         val measuredDevice = sample.recordingMethod == HealthRecordingMethod.MEASURED &&
             sample.deviceKind in setOf(HealthDeviceKind.WATCH, HealthDeviceKind.SENSOR)
+        // La source configurée (Withings par défaut) est le critère dominant :
+        // aucune mesure d'une source moins fiable ne peut la supplanter. La
+        // méthode de mesure et l'appareil ne départagent qu'au sein d'un même
+        // rang de source.
         val priorityIndex = priority.indexOf(sample.sourceCategory)
-        val sourceScore = if (priorityIndex >= 0) 500 - priorityIndex else 0
+        val sourceScore = if (priorityIndex >= 0) (100 - priorityIndex) * 10_000 else 0
         val methodScore = when (sample.recordingMethod) {
             HealthRecordingMethod.MEASURED -> 120
             HealthRecordingMethod.AUTOMATIC -> 80
             HealthRecordingMethod.MANUAL -> 20
             HealthRecordingMethod.UNKNOWN -> 0
         }
-        return (if (measuredDevice) 1_000 else 0) + sourceScore + methodScore
+        return sourceScore + (if (measuredDevice) 1_000 else 0) + methodScore
     }
 
     private fun couldStillMatch(group: List<HealthSample>, sample: HealthSample): Boolean {

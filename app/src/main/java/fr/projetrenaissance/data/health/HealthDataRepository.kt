@@ -155,7 +155,9 @@ class HealthDataRepository(
             },
             deviceKind = when (entity.deviceType) {
                 1, 5 -> HealthDeviceKind.WATCH
-                6 -> HealthDeviceKind.SENSOR
+                // 3 = balance (Withings Body…), 4 = bague, 6 = bracelet,
+                // 7 = ceinture cardio : tous de vrais capteurs de mesure.
+                3, 4, 6, 7 -> HealthDeviceKind.SENSOR
                 2 -> HealthDeviceKind.PHONE
                 null -> HealthDeviceKind.UNKNOWN
                 else -> HealthDeviceKind.OTHER

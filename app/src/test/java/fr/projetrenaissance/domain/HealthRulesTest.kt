@@ -81,6 +81,21 @@ class HealthRulesTest {
         assertEquals(HealthSourceCategory.GOOGLE_FIT, HealthDeduplication.selectPreferred(records, googleFirst).single().sourceCategory)
     }
 
+    @Test
+    fun `une mesure d appareil d une autre source ne bat pas la priorite Withings`() {
+        // Poids : la balance Withings (autrefois classée OTHER) contre une
+        // « mesure montre » d'une autre application. La source prioritaire
+        // doit gagner, quelle que soit la méthode de l'autre source.
+        val withingsScale = sample("w", HealthRecordType.WEIGHT, HealthSourceCategory.WITHINGS, 68.2)
+        val otherWatch = sample("o", HealthRecordType.WEIGHT, HealthSourceCategory.GOOGLE_FIT, 68.4)
+            .copy(recordingMethod = HealthRecordingMethod.MEASURED, deviceKind = HealthDeviceKind.WATCH)
+        val result = HealthDeduplication.selectPreferred(
+            listOf(withingsScale, otherWatch),
+            mapOf(HealthRecordType.WEIGHT to listOf(HealthSourceCategory.WITHINGS, HealthSourceCategory.GOOGLE_FIT)),
+        )
+        assertEquals(HealthSourceCategory.WITHINGS, result.single().sourceCategory)
+    }
+
     @Test(timeout = 5_000)
     fun `la deduplication reste rapide sur dix mille intervalles`() {
         val records = (0 until 5_000).flatMap { index ->
